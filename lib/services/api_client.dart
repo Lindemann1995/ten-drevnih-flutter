@@ -250,4 +250,101 @@ class ApiClient {
       return {'success': false, 'error': data['error'] ?? 'Ошибка загрузки боя'};
     }
   }
+
+    // ===== СЛУЧАЙНЫЙ ВРАГ =====
+  static Future<Map<String, dynamic>> huntInLocation(String locationSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/location/$locationSlug/hunt/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка'};
+    }
+  }
+
+  // ===== БОСС =====
+  static Future<Map<String, dynamic>> bossInLocation(String locationSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/location/$locationSlug/boss/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка'};
+    }
+  }
+    // ===== ОТДЫХ =====
+  static Future<Map<String, dynamic>> rest() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/player/rest/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка отдыха'};
+    }
+  }
+
+    // ===== ЗЕЛЬЯ ИГРОКА =====
+  static Future<Map<String, dynamic>> getPotions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/player/potions/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': 'Ошибка загрузки зелий'};
+    }
+  }
+
+  // ===== ИСПОЛЬЗОВАТЬ ЗЕЛЬЕ =====
+  static Future<Map<String, dynamic>> usePotion(String potionSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/player/use-potion/'),
+      headers: _headers,
+      body: jsonEncode({'potion_slug': potionSlug}),
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка'};
+    }
+  }
+
+  // ===== КУПИТЬ ЗЕЛЬЕ =====
+  static Future<Map<String, dynamic>> buyPotion(String potionSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/shop/buy-potion/'),
+      headers: _headers,
+      body: jsonEncode({'potion_slug': potionSlug}),
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка покупки'};
+    }
+  }
 }

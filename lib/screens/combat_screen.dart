@@ -27,10 +27,29 @@ class _CombatScreenState extends State<CombatScreen> {
   String _status = 'active';
   bool _resultShown = false;
 
+  int _healthPotions = 0;
+  int _manaPotions = 0;
+
   @override
   void initState() {
     super.initState();
     _startCombat();
+    _loadPotions();
+  }
+
+  Future<void> _loadPotions() async {
+    final result = await ApiClient.getPotions();
+    if (!mounted) return;
+    if (result['success'] == true) {
+      setState(() {
+        _healthPotions = 0;
+        _manaPotions = 0;
+        for (var p in result['data']['potions']) {
+          if (p['slug'] == 'health_potion') _healthPotions = p['quantity'];
+          if (p['slug'] == 'mana_potion') _manaPotions = p['quantity'];
+        }
+      });
+    }
   }
 
   Future<void> _startCombat() async {
@@ -46,9 +65,8 @@ class _CombatScreenState extends State<CombatScreen> {
     if (result['success'] == true) {
       final data = result['data'];
       _combatId = data['combat_id'];
-      
+
       if (data['existing'] == true) {
-        // Уже есть активный бой — загружаем состояние
         await _loadState();
       } else {
         setState(() {
@@ -77,11 +95,11 @@ class _CombatScreenState extends State<CombatScreen> {
 
   Future<void> _loadState() async {
     if (_combatId == null) return;
-    
+
     final result = await ApiClient.getCombatState(_combatId!);
-    
+
     if (!mounted) return;
-    
+
     if (result['success'] == true) {
       _applyState(result['data']);
     } else {
@@ -121,6 +139,29 @@ class _CombatScreenState extends State<CombatScreen> {
       _applyState(result['data']);
     } else {
       setState(() => _isActing = false);
+      _showMessage(result['error'] ?? 'Ошибка');
+    }
+  }
+
+  Future<void> _usePotion() async {
+    if (_healthPotions <= 0) {
+      _showMessage('Нет зелий здоровья');
+      return;
+    }
+
+    final result = await ApiClient.usePotion('health_potion');
+
+    if (!mounted) return;
+    if (result['success'] == true) {
+      _showMessage(result['data']['message'] ?? 'Зелье использовано');
+      setState(() {
+        _player = {
+          ..._player!,
+          'hp': result['data']['player_hp'],
+        };
+        _healthPotions = result['data']['remaining'] ?? 0;
+      });
+    } else {
       _showMessage(result['error'] ?? 'Ошибка');
     }
   }
@@ -247,7 +288,6 @@ class _CombatScreenState extends State<CombatScreen> {
 
     return Column(
       children: [
-        // ЗАГОЛОВОК С ВРАГОМ
         Container(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -266,8 +306,6 @@ class _CombatScreenState extends State<CombatScreen> {
             ],
           ),
         ),
-
-        // ЛОГ БОЯ
         Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -284,7 +322,7 @@ class _CombatScreenState extends State<CombatScreen> {
                 final reversedIndex = _log.length - 1 - index;
                 final entry = _log[reversedIndex];
                 final actor = entry['actor'] ?? '';
-                
+
                 Color color;
                 if (actor == 'player') {
                   color = const Color(0xFFD4AF37);
@@ -305,17 +343,13 @@ class _CombatScreenState extends State<CombatScreen> {
             ),
           ),
         ),
-
-        // HP ИГРОКА
         Container(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A), 
+              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A),
                   label: '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp'),
               const SizedBox(height: 16),
-
-              // КНОПКИ ДЕЙСТВИЙ
               if (_status == 'active')
                 Row(
                   children: [
@@ -335,6 +369,27 @@ class _CombatScreenState extends State<CombatScreen> {
                       ),
                     ),
                   ],
+                ),
+              if (_status == 'active') const SizedBox(height: 8),
+              if (_status == 'active')
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isActing || _healthPotions <= 0 ? null : _usePotion,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A0A0A),
+                      foregroundColor: const Color(0xFF6BBF6B),
+                      side: const BorderSide(color: Color(0xFF2A8B2A), width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      '🧪 ЗЕЛЬЕ HP ($_healthPotions)',
+                      style: const TextStyle(fontSize: 16, letterSpacing: 1),
+                    ),
+                  ),
                 ),
               if (_status == 'active') const SizedBox(height: 8),
               if (_status == 'active')

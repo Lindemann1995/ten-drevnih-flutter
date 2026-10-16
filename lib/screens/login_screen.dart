@@ -1,9 +1,10 @@
 import 'class_selection_screen.dart';
+
 import 'package:flutter/material.dart';
+
 import '../services/api_client.dart';
 import 'register_screen.dart';
 import 'map_screen.dart';
-
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -46,14 +47,33 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
-  _showSuccess('Вход выполнен!');
-  await Future.delayed(const Duration(seconds: 1));
-  if (!mounted) return;
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const ClassSelectionScreen()),
-  );
-}
+      _showSuccess('Вход выполнен!');
+
+      // Загружаем профиль, чтобы узнать, выбран ли класс
+      final profileResult = await ApiClient.getProfile();
+
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+
+      final hasClass =
+          profileResult['success'] == true &&
+          profileResult['data']['character_class'] != null;
+
+      if (hasClass) {
+        // Класс уже выбран → сразу на карту
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MapScreen()),
+        );
+      } else {
+        // Класса нет → на выбор класса
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ClassSelectionScreen()),
+        );
+      }
+    }
   }
 
   void _showError(String message) {
@@ -122,7 +142,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: _decoration('Пароль', Icons.lock).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                         color: Colors.white54,
                       ),
                       onPressed: () {
@@ -140,7 +162,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A0A0A),
                       foregroundColor: const Color(0xFFD4AF37),
-                      side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                      side: const BorderSide(
+                        color: Color(0xFF8B0000),
+                        width: 2,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

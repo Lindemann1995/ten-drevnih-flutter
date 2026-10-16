@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'scene_screen.dart';
-import 'combat_screen.dart';
+import 'location_screen.dart';
+import 'profile_screen.dart';
 
 class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
@@ -20,16 +21,34 @@ class MapScreen extends StatelessWidget {
           child: Column(
             children: [
               // Заголовок
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Text(
-                  'КАРТА МИРА',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFD4AF37),
-                    letterSpacing: 4,
-                  ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFFD4AF37)),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Text(
+                      'КАРТА МИРА',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4AF37),
+                        letterSpacing: 3,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.person, color: Color(0xFFD4AF37)),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
               const Text(
@@ -72,7 +91,7 @@ class MapScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
 
-                    _LocationCard(
+                  _LocationCard(
                       title: 'Тёмный лес',
                       subtitle: 'Уровень 2+ • Волки, пауки, медведи',
                       icon: Icons.forest,
@@ -81,9 +100,11 @@ class MapScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const CombatScreen(
-                              enemySlug: 'forest_wolf',
-                              enemyName: 'Лесной волк',
+                            builder: (_) => const LocationScreen(
+                              locationSlug: 'dark_forest',
+                              locationName: 'Тёмный лес',
+                              locationDescription: 'Мрачный лес, полный волков и пауков. Здесь начинается путь охотника.',
+                              minLevel: 2,
                             ),
                           ),
                         );
