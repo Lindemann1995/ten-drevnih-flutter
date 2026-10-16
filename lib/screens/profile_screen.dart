@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
+import 'inventory_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -106,7 +107,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final gold = p['gold'] ?? 0;
     final classData = p['character_class'];
     final className = classData != null ? classData['name'] : 'Без класса';
-    
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -138,7 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 30),
 
-          // Уровень + опыт
+          // Уровень
           _buildInfoCard('УРОВЕНЬ', '$level'),
           const SizedBox(height: 12),
 
@@ -175,7 +175,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildStat('👁 Рассудок', p['sanity'] ?? 0),
           const SizedBox(height: 30),
 
-          // Выход
+                    // Кнопка "Инвентарь"
+          SizedBox(
+            height: 55,
+            child: ElevatedButton(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const InventoryScreen()),
+                );
+                // После возврата из инвентаря — перезагружаем профиль
+                _loadProfile();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A0A0A),
+                foregroundColor: const Color(0xFFD4AF37),
+                side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                '🎒 ИНВЕНТАРЬ И ЭКИПИРОВКА',
+                style: TextStyle(fontSize: 14, letterSpacing: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Кнопка "Выйти"
           SizedBox(
             height: 55,
             child: ElevatedButton(

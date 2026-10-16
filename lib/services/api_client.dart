@@ -347,4 +347,112 @@ class ApiClient {
       return {'success': false, 'error': data['error'] ?? 'Ошибка покупки'};
     }
   }
+    // ===== ТОРГОВЦЫ В ЛОКАЦИИ =====
+  static Future<Map<String, dynamic>> getTraders(String locationSlug) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/location/$locationSlug/traders/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': 'Ошибка загрузки торговцев'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getTraderItems(String traderSlug) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/trader/$traderSlug/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': 'Ошибка загрузки товаров'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> buyItem(String traderSlug, String itemSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/trader/$traderSlug/buy/'),
+      headers: _headers,
+      body: jsonEncode({'item_slug': itemSlug}),
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка покупки'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getInventory() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/player/inventory/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': 'Ошибка загрузки инвентаря'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> equipItem(String itemSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/player/equip/'),
+      headers: _headers,
+      body: jsonEncode({'item_slug': itemSlug}),
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка экипировки'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> unequipItem(String slot) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/player/unequip/'),
+      headers: _headers,
+      body: jsonEncode({'slot': slot}),
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getEquipment() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/player/equipment/'),
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': 'Ошибка загрузки экипировки'};
+    }
+  }
 }

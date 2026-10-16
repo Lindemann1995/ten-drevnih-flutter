@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'scene_screen.dart';
 import 'location_screen.dart';
 import 'profile_screen.dart';
+import 'trade_world_screen.dart';
 
 class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
@@ -90,7 +91,19 @@ class MapScreen extends StatelessWidget {
                       onTap: () {},
                     ),
                     const SizedBox(height: 12),
-
+                  _LocationCard(
+                      title: 'Мир Торговли',
+                      subtitle: 'Торговцы и лавки',
+                      icon: Icons.store,
+                      isAvailable: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const TradeWorldScreen()),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
                   _LocationCard(
                       title: 'Тёмный лес',
                       subtitle: 'Уровень 2+ • Волки, пауки, медведи',
