@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
+import 'widgets/typewriter_text.dart';
 
 class SceneScreen extends StatefulWidget {
   const SceneScreen({super.key});
@@ -13,6 +14,7 @@ class _SceneScreenState extends State<SceneScreen> {
   String? _error;
   Map<String, dynamic>? _scene;
   bool _isChoosing = false;
+  bool _textComplete = false;
 
   @override
   void initState() {
@@ -24,6 +26,7 @@ class _SceneScreenState extends State<SceneScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _textComplete = false;
     });
 
     final result = await ApiClient.getCurrentScene();
@@ -54,7 +57,10 @@ class _SceneScreenState extends State<SceneScreen> {
     if (result['success'] == true) {
       final next = result['data']['next_scene'];
       if (next != null) {
-        setState(() => _scene = next);
+        setState(() {
+          _scene = next;
+          _textComplete = false;
+        });
       } else {
         _showMessage('Конец обучения. Скоро — продолжение!');
       }
@@ -65,14 +71,20 @@ class _SceneScreenState extends State<SceneScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: const Color(0xFF8B0000)),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF8B0000),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0A),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -126,7 +138,10 @@ class _SceneScreenState extends State<SceneScreen> {
   Widget _buildScene() {
     if (_scene == null) {
       return const Center(
-        child: Text('Сцена не загружена', style: TextStyle(color: Colors.white)),
+        child: Text(
+          'Сцена не загружена',
+          style: TextStyle(color: Colors.white),
+        ),
       );
     }
 
@@ -140,6 +155,7 @@ class _SceneScreenState extends State<SceneScreen> {
       children: [
         // Заголовок сцены
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
             border: Border(
@@ -177,56 +193,91 @@ class _SceneScreenState extends State<SceneScreen> {
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
-            child: Text(
-              text,
+            child: TypewriterText(
+              key: ValueKey(title),
+              text: text,
+              speed: const Duration(milliseconds: 25),
               style: const TextStyle(
                 fontSize: 16,
                 color: Colors.white70,
                 height: 1.6,
                 fontStyle: FontStyle.italic,
               ),
+              onComplete: () {
+                if (mounted) {
+                  setState(() => _textComplete = true);
+                }
+              },
             ),
           ),
         ),
 
-        // Кнопки выбора
-        if (choices.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: choices.map<Widget>((choice) {
-                final id = choice['id'] as int;
-                final choiceText = choice['text'] ?? '';
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: _isChoosing ? null : () => _makeChoice(id),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A0A0A),
-                        foregroundColor: const Color(0xFFD4AF37),
-                        side: const BorderSide(color: Color(0xFF8B0000), width: 2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        choiceText,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          letterSpacing: 1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+        // Нижний блок: кнопки выбора ИЛИ кнопка пропустить
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          child: _textComplete && choices.isNotEmpty
+              ? _buildChoices(choices)
+              : (_textComplete
+                  ? const SizedBox(height: 1)
+                  : _buildSkipButton(text)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChoices(List<dynamic> choices) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: choices.map<Widget>((choice) {
+        final id = choice['id'] as int;
+        final choiceText = choice['text'] ?? '';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SizedBox(
+            width: double.infinity,
+            height: 55,
+            child: ElevatedButton(
+              onPressed: _isChoosing ? null : () => _makeChoice(id),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A0A0A),
+                foregroundColor: const Color(0xFFD4AF37),
+                side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                choiceText,
+                style: const TextStyle(
+                  fontSize: 16,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
-      ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSkipButton(String text) {
+    if (text.isEmpty) {
+      return const SizedBox(height: 1);
+    }
+    return TextButton(
+      onPressed: () {
+        setState(() => _textComplete = true);
+      },
+      child: const Text(
+        'ПРОПУСТИТЬ',
+        style: TextStyle(
+          color: Colors.white38,
+          fontSize: 12,
+          letterSpacing: 2,
+        ),
+      ),
     );
   }
 }

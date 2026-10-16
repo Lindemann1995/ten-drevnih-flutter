@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'location_screen.dart';
 import 'profile_screen.dart';
 import 'trade_world_screen.dart';
-
+import 'scene_screen.dart';
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -121,6 +121,13 @@ class _MapScreenState extends State<MapScreen>
   }
 
   void _enterLocation(MapLocation loc) {
+    if (loc.slug == 'world_ancient') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SceneScreen()),
+      );
+      return;
+    }
     if (loc.slug == 'trade_world') {
       Navigator.push(
         context,
