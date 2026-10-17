@@ -10,6 +10,7 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  @override
   @override
   void dispose() {
     _usernameController.dispose();
@@ -88,6 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(

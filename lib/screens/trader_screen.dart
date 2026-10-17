@@ -12,6 +12,7 @@ class TraderScreen extends StatefulWidget {
   });
 
   @override
+  @override
   State<TraderScreen> createState() => _TraderScreenState();
 }
 
@@ -22,6 +23,7 @@ class _TraderScreenState extends State<TraderScreen> {
   List<dynamic> _items = [];
   int _playerGold = 0;
 
+  @override
   @override
   void initState() {
     super.initState();
@@ -117,6 +119,7 @@ class _TraderScreenState extends State<TraderScreen> {
     }
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -267,6 +270,7 @@ class _ItemCard extends StatelessWidget {
   });
 
   @override
+  @override
   Widget build(BuildContext context) {
     final price = item['price'] ?? 0;
     final canAfford = playerGold >= price;
@@ -309,7 +313,7 @@ class _ItemCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: rarityColor.withOpacity(0.2),
+                  color: rarityColor.withValues(alpha: 0.2),
                   border: Border.all(color: rarityColor, width: 1),
                   borderRadius: BorderRadius.circular(4),
                 ),

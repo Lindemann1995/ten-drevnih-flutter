@@ -6,6 +6,7 @@ class SceneScreen extends StatefulWidget {
   const SceneScreen({super.key});
 
   @override
+  @override
   State<SceneScreen> createState() => _SceneScreenState();
 }
 
@@ -16,6 +17,7 @@ class _SceneScreenState extends State<SceneScreen> {
   bool _isChoosing = false;
   bool _textComplete = false;
 
+  @override
   @override
   void initState() {
     super.initState();
@@ -78,6 +80,7 @@ class _SceneScreenState extends State<SceneScreen> {
     );
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(

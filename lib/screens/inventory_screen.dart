@@ -5,6 +5,7 @@ class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
 
   @override
+  @override
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
@@ -14,6 +15,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   List<dynamic> _items = [];
   Map<String, dynamic> _equipment = {};
 
+  @override
   @override
   void initState() {
     super.initState();
@@ -96,6 +98,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -212,7 +215,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   )
                 else
-                  ..._items.map((item) => _buildItemCard(item)).toList(),
+                  ..._items.map((item) => _buildItemCard(item)),
               ],
             ),
           ),

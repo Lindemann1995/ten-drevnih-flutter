@@ -6,6 +6,7 @@ class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
+  @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
@@ -19,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
+  @override
   @override
   void dispose() {
     _usernameController.dispose();
@@ -97,6 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(

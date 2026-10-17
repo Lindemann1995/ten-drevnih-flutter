@@ -6,6 +6,7 @@ class ClassSelectionScreen extends StatefulWidget {
   const ClassSelectionScreen({super.key});
 
   @override
+  @override
   State<ClassSelectionScreen> createState() => _ClassSelectionScreenState();
 }
 
@@ -16,6 +17,7 @@ class _ClassSelectionScreenState extends State<ClassSelectionScreen> {
   int? _selectedId;
   bool _isChoosing = false;
 
+  @override
   @override
   void initState() {
     super.initState();
@@ -77,6 +79,7 @@ class _ClassSelectionScreenState extends State<ClassSelectionScreen> {
     );
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(

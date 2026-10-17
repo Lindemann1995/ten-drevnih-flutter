@@ -6,6 +6,7 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
@@ -14,6 +15,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _error;
   Map<String, dynamic>? _profile;
 
+  @override
   @override
   void initState() {
     super.initState();
@@ -43,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(

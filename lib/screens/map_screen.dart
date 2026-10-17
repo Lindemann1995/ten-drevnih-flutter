@@ -7,6 +7,7 @@ class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
   @override
+  @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
@@ -91,6 +92,7 @@ class _MapScreenState extends State<MapScreen>
   ];
 
   @override
+  @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
@@ -99,6 +101,7 @@ class _MapScreenState extends State<MapScreen>
     )..repeat(reverse: true);
   }
 
+  @override
   @override
   void dispose() {
     _pulseController.dispose();
@@ -158,6 +161,7 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -314,6 +318,7 @@ class _LocationMarker extends StatelessWidget {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
@@ -378,6 +383,7 @@ class _LocationSheet extends StatelessWidget {
     required this.onEnter,
   });
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Container(

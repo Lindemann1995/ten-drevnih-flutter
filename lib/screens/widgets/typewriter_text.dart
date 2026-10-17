@@ -16,6 +16,7 @@ class TypewriterText extends StatefulWidget {
   });
 
   @override
+  @override
   State<TypewriterText> createState() => _TypewriterTextState();
 }
 
@@ -25,11 +26,13 @@ class _TypewriterTextState extends State<TypewriterText> {
   Timer? _timer;
 
   @override
+  @override
   void initState() {
     super.initState();
     _startTyping();
   }
 
+  @override
   @override
   void didUpdateWidget(TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -63,11 +66,13 @@ class _TypewriterTextState extends State<TypewriterText> {
   }
 
   @override
+  @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Text(

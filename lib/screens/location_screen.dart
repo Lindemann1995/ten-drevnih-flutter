@@ -17,6 +17,7 @@ class LocationScreen extends StatefulWidget {
   });
 
   @override
+  @override
   State<LocationScreen> createState() => _LocationScreenState();
 }
 
@@ -92,6 +93,7 @@ class _LocationScreenState extends State<LocationScreen> {
     );
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -188,6 +190,7 @@ class _BigButton extends StatelessWidget {
     this.isSpecial = false,
   });
 
+  @override
   @override
   Widget build(BuildContext context) {
     final borderColor = isSpecial ? const Color(0xFFD4AF37) : const Color(0xFF8B0000);

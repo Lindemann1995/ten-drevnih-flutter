@@ -6,6 +6,7 @@ class TradeWorldScreen extends StatefulWidget {
   const TradeWorldScreen({super.key});
 
   @override
+  @override
   State<TradeWorldScreen> createState() => _TradeWorldScreenState();
 }
 
@@ -14,6 +15,7 @@ class _TradeWorldScreenState extends State<TradeWorldScreen> {
   String? _error;
   List<dynamic> _traders = [];
 
+  @override
   @override
   void initState() {
     super.initState();
@@ -43,6 +45,7 @@ class _TradeWorldScreenState extends State<TradeWorldScreen> {
     }
   }
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,6 +185,7 @@ class _TraderCard extends StatelessWidget {
     required this.onTap,
   });
 
+  @override
   @override
   Widget build(BuildContext context) {
     return GestureDetector(

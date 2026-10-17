@@ -15,7 +15,8 @@ class CombatScreen extends StatefulWidget {
   State<CombatScreen> createState() => _CombatScreenState();
 }
 
-class _CombatScreenState extends State<CombatScreen> {
+class _CombatScreenState extends State<CombatScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _isActing = false;
   String? _error;
@@ -28,13 +29,30 @@ class _CombatScreenState extends State<CombatScreen> {
   bool _resultShown = false;
 
   int _healthPotions = 0;
-  int _manaPotions = 0;
+
+  late AnimationController _attackController;
+  late Animation<double> _heroAttackAnimation;
+  bool _isEnemyHit = false;
 
   @override
   void initState() {
     super.initState();
     _startCombat();
     _loadPotions();
+
+    _attackController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _heroAttackAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _attackController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _attackController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPotions() async {
@@ -43,10 +61,8 @@ class _CombatScreenState extends State<CombatScreen> {
     if (result['success'] == true) {
       setState(() {
         _healthPotions = 0;
-        _manaPotions = 0;
         for (var p in result['data']['potions']) {
           if (p['slug'] == 'health_potion') _healthPotions = p['quantity'];
-          if (p['slug'] == 'mana_potion') _manaPotions = p['quantity'];
         }
       });
     }
@@ -95,11 +111,8 @@ class _CombatScreenState extends State<CombatScreen> {
 
   Future<void> _loadState() async {
     if (_combatId == null) return;
-
     final result = await ApiClient.getCombatState(_combatId!);
-
     if (!mounted) return;
-
     if (result['success'] == true) {
       _applyState(result['data']);
     } else {
@@ -131,6 +144,14 @@ class _CombatScreenState extends State<CombatScreen> {
 
     setState(() => _isActing = true);
 
+    if (action == 'attack') {
+      await _attackController.forward();
+      setState(() => _isEnemyHit = true);
+      await Future.delayed(const Duration(milliseconds: 100));
+      setState(() => _isEnemyHit = false);
+      await _attackController.reverse();
+    }
+
     final result = await ApiClient.combatAction(_combatId!, action);
 
     if (!mounted) return;
@@ -148,17 +169,12 @@ class _CombatScreenState extends State<CombatScreen> {
       _showMessage('Нет зелий здоровья');
       return;
     }
-
     final result = await ApiClient.usePotion('health_potion');
-
     if (!mounted) return;
     if (result['success'] == true) {
       _showMessage(result['data']['message'] ?? 'Зелье использовано');
       setState(() {
-        _player = {
-          ..._player!,
-          'hp': result['data']['player_hp'],
-        };
+        _player = {..._player!, 'hp': result['data']['player_hp']};
         _healthPotions = result['data']['remaining'] ?? 0;
       });
     } else {
@@ -306,50 +322,125 @@ class _CombatScreenState extends State<CombatScreen> {
             ],
           ),
         ),
+
+        // АРЕНА (Герой слева, Волк справа)
         Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A0A0A),
-              border: Border.all(color: const Color(0xFF3A1A1A), width: 1),
-              borderRadius: BorderRadius.circular(8),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2A1A1A), Color(0xFF0A0A0A)],
+              ),
+              border: Border.all(color: const Color(0xFF3A1A1A), width: 2),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: ListView.builder(
-              reverse: true,
-              itemCount: _log.length,
-              itemBuilder: (context, index) {
-                final reversedIndex = _log.length - 1 - index;
-                final entry = _log[reversedIndex];
-                final actor = entry['actor'] ?? '';
-
-                Color color;
-                if (actor == 'player') {
-                  color = const Color(0xFFD4AF37);
-                } else if (actor == 'enemy') {
-                  color = const Color(0xFFFF6B6B);
-                } else {
-                  color = Colors.white54;
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(
-                    entry['message'] ?? '',
-                    style: TextStyle(color: color, fontSize: 14, height: 1.4),
+            child: Stack(
+              children: [
+                // ГЕРОЙ
+                Positioned(
+                  left: 20,
+                  bottom: 20,
+                  child: AnimatedBuilder(
+                    animation: _heroAttackAnimation,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(_heroAttackAnimation.value * 100, 0),
+                        child: child,
+                      );
+                    },
+                    child: SizedBox(
+                      height: 220,
+                      width: 150,
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: Image.asset(
+                          'assets/images/characters/hero_idle.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (c, e, s) => const Icon(Icons.person, size: 100),
+                        ),
+                      ),
+                    ),
                   ),
-                );
-              },
+                ),
+                // ВРАГ
+                Positioned(
+                  right: 20,
+                  bottom: 20,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 100),
+                    transform: Matrix4.translationValues(
+                      _isEnemyHit ? 15 : 0,
+                      _isEnemyHit ? -5 : 0,
+                      0,
+                    ),
+                    child: Transform.flip(
+                      flipX: true,
+                      child: SizedBox(
+                        height: 150,
+                        width: 150,
+                        child: Align(
+                          alignment: Alignment.bottomRight,
+                          child: Image.asset(
+                            'assets/images/characters/mob_idle.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (c, e, s) => const Icon(Icons.pets, size: 100),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
+
+        // ЛОГ БОЯ
         Container(
-          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          height: 100,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A0A0A),
+            border: Border.all(color: const Color(0xFF3A1A1A), width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ListView.builder(
+            reverse: true,
+            itemCount: _log.length,
+            itemBuilder: (context, index) {
+              final entry = _log[_log.length - 1 - index];
+              final actor = entry['actor'] ?? '';
+              Color color = Colors.white54;
+              if (actor == 'player') color = const Color(0xFFD4AF37);
+              if (actor == 'enemy') color = const Color(0xFFFF6B6B);
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  entry['message'] ?? '',
+                  style: TextStyle(color: color, fontSize: 13),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // КНОПКИ
+        Container(
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A),
-                  label: '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp'),
+              _buildHpBar(
+                playerHp,
+                playerMaxHp,
+                const Color(0xFF2A8B2A),
+                label: '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp',
+              ),
               const SizedBox(height: 16),
+
               if (_status == 'active')
                 Row(
                   children: [
