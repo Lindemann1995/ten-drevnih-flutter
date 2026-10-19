@@ -33,12 +33,15 @@ class ApiClient {
   static bool get isAuthenticated => _token != null;
 
   // Заголовки для запросов
-  static Map<String, String> get _headers {
+   static Map<String, String> get _headers {
     final headers = {
       'Content-Type': 'application/json',
     };
     if (_token != null) {
+      print("ТОКЕН ЕСТЬ: $_token"); // <--- ДОБАВЬ ЭТУ СТРОКУ
       headers['Authorization'] = 'Bearer $_token';
+    } else {
+      print("ТОКЕНА НЕТ!"); // <--- И ЭТУ
     }
     return headers;
   }
@@ -399,7 +402,9 @@ class ApiClient {
       Uri.parse('$baseUrl/player/inventory/'),
       headers: _headers,
     );
-
+     // ВРЕМЕННАЯ СТРОКА ДЛЯ ОТЛАДКИ
+    print("СТАТУС ОТВЕТА СЕРВЕРА: ${response.statusCode}"); 
+    print("ТЕЛО ОТВЕТА: ${response.body}");
     final data = jsonDecode(utf8.decode(response.bodyBytes));
 
     if (response.statusCode == 200) {
@@ -452,7 +457,40 @@ class ApiClient {
     if (response.statusCode == 200) {
       return {'success': true, 'data': data};
     } else {
-      return {'success': false, 'error': 'Ошибка загрузки экипировки'};
+      // Если сервер вернул 401, мы явно об этом сообщим
+      if (response.statusCode == 401) {
+        return {'success': false, 'error': 'Не авторизован'};
+      }
+      return {'success': false, 'error': data['error'] ?? 'Ошибка загрузки экипировки'};
+    }
+  }
+
+  // ===== СПИСОК ВСЕХ ЛОКАЦИЙ =====
+  static Future<Map<String, dynamic>> getLocations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/locations/'), 
+      headers: _headers,
+    );
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка загрузки локаций'};
+    }
+  }
+
+    static Future<Map<String, dynamic>> getLocationEnemies(String locationSlug) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/location/$locationSlug/enemies/'),
+      headers: _headers,
+    );
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {'success': false, 'error': data['error'] ?? 'Ошибка'};
     }
   }
 }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import 'inventory_screen.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  @override
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -15,7 +15,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _error;
   Map<String, dynamic>? _profile;
 
-  @override
   @override
   void initState() {
     super.initState();
@@ -45,7 +44,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  @override
+  // Окно выбора класса
+ void _showClassSelection() {
+    // ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ТЕСТОВ (потом вернем обратно)
+    // if (_profile?['character_class'] != null) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Вы уже выбрали класс! Изменить выбор нельзя.'), backgroundColor: Color(0xFF8B0000)),
+    //   );
+    //   return;
+    // }
+
+    ApiClient.getClasses().then((result) {
+      if (result['success'] == true) {
+        final classes = result['data'] as List<dynamic>;
+        
+        if (!mounted) return;
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: const Color(0xFF1A0A0A),
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            side: BorderSide(color: Color(0xFFD4AF37), width: 2),
+          ),
+          builder: (context) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Column(
+                children: [
+                  const Text(
+                    'ВЫБЕРИ СВОЙ ПУТЬ',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37), letterSpacing: 2),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'ТЕСТОВЫЙ РЕЖИМ: Класс можно менять!',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF6BBF6B), fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 15),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: classes.length,
+                      itemBuilder: (context, index) {
+                        final cls = classes[index];
+                        return Card(
+                          color: const Color(0xFF2A0A0A),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          shape: RoundedRectangleBorder(side: const BorderSide(color: Colors.white24), borderRadius: BorderRadius.circular(8)),
+                          child: ListTile(
+                            title: Text(cls['name'], style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold)),
+                            subtitle: Text(cls['description'] ?? 'Нет описания', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            trailing: ElevatedButton(
+                              onPressed: () async {
+                                final res = await ApiClient.chooseClass(cls['id']);
+                                if (res['success'] == true) {
+                                  Navigator.pop(context);
+                                  _loadProfile(); // Обновляем профиль
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['error'] ?? 'Ошибка')));
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1A0A0A),
+                                foregroundColor: const Color(0xFFD4AF37),
+                                side: const BorderSide(color: Color(0xFFD4AF37)),
+                              ),
+                              child: const Text('ВЫБРАТЬ'),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,8 +159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             const Icon(Icons.error, color: Color(0xFF8B0000), size: 60),
             const SizedBox(height: 20),
-            Text(_error!,
-                style: const TextStyle(color: Colors.white70, fontSize: 16)),
+            Text(_error!, style: const TextStyle(color: Colors.white70, fontSize: 16)),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _loadProfile,
@@ -108,129 +187,187 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final mana = p['mana'] ?? 50;
     final maxMana = p['max_mana'] ?? 50;
     final gold = p['gold'] ?? 0;
+    
     final classData = p['character_class'];
-    final className = classData != null ? classData['name'] : 'Без класса';
+    final hasClass = classData != null;
+    final className = hasClass ? classData['name'] : 'Не выбран';
+    final classDescription = hasClass ? (classData['description'] ?? '') : '';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 10),
+    return RefreshIndicator(
+      onRefresh: _loadProfile,
+      color: const Color(0xFFD4AF37),
+      backgroundColor: const Color(0xFF1A0A0A),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(), 
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
 
-          // Ник
-          Text(
-            username.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFD4AF37),
-              letterSpacing: 3,
+            // Ник
+            Text(
+              username.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFD4AF37),
+                letterSpacing: 3,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            className,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          const SizedBox(height: 30),
+            const SizedBox(height: 30),
 
-          // Уровень
-          _buildInfoCard('УРОВЕНЬ', '$level'),
-          const SizedBox(height: 12),
-
-          // Прогресс-бар опыта
-          _buildExpBar(experience, experienceToNext),
-          const SizedBox(height: 20),
-
-          // HP / MP
-          _buildResourceBar('❤ HP', health, maxHealth, const Color(0xFF8B0000)),
-          const SizedBox(height: 10),
-          _buildResourceBar('💧 MP', mana, maxMana, const Color(0xFF3A5A8B)),
-          const SizedBox(height: 20),
-
-          // Золото
-          _buildInfoCard('💰 ЗОЛОТО', '$gold'),
-          const SizedBox(height: 20),
-
-          // Статы
-          const Text(
-            'СТАТЫ',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFD4AF37),
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildStat('💪 Сила', p['strength'] ?? 0),
-          _buildStat('🏃 Ловкость', p['agility'] ?? 0),
-          _buildStat('🧠 Интеллект', p['intelligence'] ?? 0),
-          _buildStat('🛡 Выносливость', p['endurance'] ?? 0),
-          _buildStat('👁 Рассудок', p['sanity'] ?? 0),
-          const SizedBox(height: 30),
-
-                    // Кнопка "Инвентарь"
-          SizedBox(
-            height: 55,
-            child: ElevatedButton(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const InventoryScreen()),
-                );
-                // После возврата из инвентаря — перезагружаем профиль
-                _loadProfile();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A0A0A),
-                foregroundColor: const Color(0xFFD4AF37),
-                side: const BorderSide(color: Color(0xFF8B0000), width: 2),
-                shape: RoundedRectangleBorder(
+            // ЯЧЕЙКА КЛАССА
+            GestureDetector(
+              onTap: _showClassSelection,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A0A0A),
+                  border: Border.all(
+                    color: hasClass ? const Color(0xFFD4AF37) : const Color(0xFF8B0000), 
+                    width: hasClass ? 2 : 2
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-              ),
-              child: const Text(
-                '🎒 ИНВЕНТАРЬ И ЭКИПИРОВКА',
-                style: TextStyle(fontSize: 14, letterSpacing: 1.5),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Кнопка "Выйти"
-          SizedBox(
-            height: 55,
-            child: ElevatedButton(
-              onPressed: () async {
-                await ApiClient.clearToken();
-                if (!mounted) return;
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A0A0A),
-                foregroundColor: const Color(0xFF8B8B8B),
-                side: const BorderSide(color: Color(0xFF3A3A3A), width: 2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                child: Row(
+                  children: [
+                    // Иконка или эмодзи
+                    Text(
+                      hasClass ? '🎭' : '❓',
+                      style: const TextStyle(fontSize: 30),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('ВАШ КЛАСС', style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1)),
+                          const SizedBox(height: 4),
+                          Text(
+                            hasClass ? className : 'ВЫБРАТЬ КЛАСС',
+                            style: TextStyle(
+                              color: hasClass ? const Color(0xFFD4AF37) : const Color(0xFFFF4D4D),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (hasClass && classDescription.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              classDescription,
+                              style: const TextStyle(color: Colors.white38, fontSize: 12, fontStyle: FontStyle.italic),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ]
+                        ],
+                      ),
+                    ),
+                    if (!hasClass)
+                      const Icon(Icons.arrow_forward_ios, color: Color(0xFF8B0000), size: 16),
+                  ],
                 ),
               ),
-              child: const Text(
-                'ВЫЙТИ ИЗ АККАУНТА',
-                style: TextStyle(fontSize: 14, letterSpacing: 1.5),
+            ),
+            const SizedBox(height: 20),
+
+            // Уровень
+            _buildInfoCard('УРОВЕНЬ', '$level'),
+            const SizedBox(height: 12),
+
+            // Прогресс-бар опыта
+            _buildExpBar(experience, experienceToNext),
+            const SizedBox(height: 20),
+
+            // HP / MP
+            _buildResourceBar('❤ HP', health, maxHealth, const Color(0xFF8B0000)),
+            const SizedBox(height: 10),
+            _buildResourceBar('💧 MP', mana, maxMana, const Color(0xFF3A5A8B)),
+            const SizedBox(height: 20),
+
+            // Золото
+            _buildInfoCard('💰 ЗОЛОТО', '$gold'),
+            const SizedBox(height: 20),
+
+            // Статы
+            const Text(
+              'СТАТЫ',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFD4AF37),
+                letterSpacing: 2,
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-        ],
+            const SizedBox(height: 12),
+            _buildStat('💪 Сила', p['strength'] ?? 0),
+            _buildStat('🏃 Ловкость', p['agility'] ?? 0),
+            _buildStat('🧠 Интеллект', p['intelligence'] ?? 0),
+            _buildStat('🛡 Выносливость', p['endurance'] ?? 0),
+            _buildStat('👁 Рассудок', p['sanity'] ?? 0),
+            const SizedBox(height: 30),
+
+            // Кнопка "Инвентарь"
+            SizedBox(
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const InventoryScreen()),
+                  );
+                  _loadProfile();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A0A0A),
+                  foregroundColor: const Color(0xFFD4AF37),
+                  side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  '🎒 ИНВЕНТАРЬ И ЭКИПИРОВКА',
+                  style: TextStyle(fontSize: 14, letterSpacing: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Кнопка "Выйти"
+            SizedBox(
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await ApiClient.clearToken(); 
+                  if (context.mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      (route) => false, 
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A0A0A),
+                  foregroundColor: const Color(0xFF8B8B8B),
+                  side: const BorderSide(color: Color(0xFF3A3A3A), width: 2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'ВЫЙТИ ИЗ АККАУНТА',
+                  style: TextStyle(fontSize: 14, letterSpacing: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
     );
   }

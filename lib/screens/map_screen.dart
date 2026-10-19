@@ -3,10 +3,11 @@ import 'location_screen.dart';
 import 'profile_screen.dart';
 import 'trade_world_screen.dart';
 import 'scene_screen.dart';
+import 'hunt_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ ОХОТЫ
+
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
-  @override
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -45,7 +46,7 @@ class _MapScreenState extends State<MapScreen>
       y: 0.38,
       icon: Icons.forest,
       isAvailable: true,
-      isCombat: true,
+      isCombat: true, // <--- ВАЖНО: флаг боя
       recommendedLevel: '2+',
     ),
     MapLocation(
@@ -77,6 +78,7 @@ class _MapScreenState extends State<MapScreen>
       y: 0.78,
       icon: Icons.dark_mode,
       isAvailable: false,
+      isCombat: true, // <--- Тоже боевая, когда откроется
       recommendedLevel: 'Сюжет',
     ),
     MapLocation(
@@ -92,7 +94,6 @@ class _MapScreenState extends State<MapScreen>
   ];
 
   @override
-  @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
@@ -101,7 +102,6 @@ class _MapScreenState extends State<MapScreen>
     )..repeat(reverse: true);
   }
 
-  @override
   @override
   void dispose() {
     _pulseController.dispose();
@@ -124,6 +124,7 @@ class _MapScreenState extends State<MapScreen>
   }
 
   void _enterLocation(MapLocation loc) {
+    // 1. Если это сюжетная стартовая локация
     if (loc.slug == 'world_ancient') {
       Navigator.push(
         context,
@@ -131,6 +132,7 @@ class _MapScreenState extends State<MapScreen>
       );
       return;
     }
+    // 2. Если это торговый мир
     if (loc.slug == 'trade_world') {
       Navigator.push(
         context,
@@ -138,21 +140,17 @@ class _MapScreenState extends State<MapScreen>
       );
       return;
     }
-    if (loc.slug == 'dark_forest') {
+    // 3. Если это боевая локация (включая Темный лес и Склеп)
+    if (loc.isCombat) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => LocationScreen(
-            locationSlug: 'dark_forest',
-            locationName: 'Тёмный лес',
-            locationDescription:
-                'Мрачный лес, полный волков и пауков. Здесь начинается путь охотника.',
-            minLevel: 2,
-          ),
+          builder: (_) => const HuntScreen(),
         ),
       );
       return;
     }
+    // 4. Для всех остальных (закрытых)
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Локация "${loc.name}" — сюжетная, скоро откроется.'),
@@ -161,7 +159,6 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,8 +180,7 @@ class _MapScreenState extends State<MapScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Color(0xFFD4AF37)),
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFFD4AF37)),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
@@ -197,14 +193,11 @@ class _MapScreenState extends State<MapScreen>
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.person,
-                          color: Color(0xFFD4AF37)),
+                      icon: const Icon(Icons.person, color: Color(0xFFD4AF37)),
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const ProfileScreen(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const ProfileScreen()),
                         );
                       },
                     ),
@@ -318,7 +311,6 @@ class _LocationMarker extends StatelessWidget {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
@@ -383,7 +375,6 @@ class _LocationSheet extends StatelessWidget {
     required this.onEnter,
   });
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Container(
