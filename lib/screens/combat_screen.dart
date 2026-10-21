@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import '../services/api_client.dart';
 import 'battle_game.dart';
+import '../utils/asset_paths.dart';
 
 class CombatScreen extends StatefulWidget {
   final String enemySlug;
@@ -22,7 +23,7 @@ class _CombatScreenState extends State<CombatScreen> {
   bool _isActing = false;
   String? _error;
   int? _combatId;
-  
+
   late BattleGame _game;
 
   Map<String, dynamic>? _player;
@@ -38,7 +39,7 @@ class _CombatScreenState extends State<CombatScreen> {
   int _rewardExp = 0;
   List<dynamic> _droppedItems = [];
 
-  bool _isCombatStarted = false; 
+  bool _isCombatStarted = false;
 
   @override
   void initState() {
@@ -48,22 +49,15 @@ class _CombatScreenState extends State<CombatScreen> {
   }
 
   Future<void> _loadProfileAndStart() async {
-    if (_isCombatStarted) return; 
+    if (_isCombatStarted) return;
     _isCombatStarted = true;
 
     final result = await ApiClient.getProfile();
     if (!mounted) return;
-    
+
     if (result['success'] == true) {
       _player = result['data'];
     }
-
-    String className = _player?['character_class']?['name'] ?? 'Воин';
-
-    _game = BattleGame(
-      playerClass: className,
-      enemySlug: widget.enemySlug,
-    );
 
     _startCombat();
   }
@@ -100,13 +94,15 @@ class _CombatScreenState extends State<CombatScreen> {
       } else {
         setState(() {
           _enemy = {
-            'name': data['enemy_name'], 
+            'name': data['enemy_name'],
             'hp': data['enemy_hp'],
             'max_hp': data['enemy_hp'],
             'level': 1,
+            'image': data['enemy_image'],
+            'bg': data['enemy_bg'],
           };
           _player = {
-            ...?_player, 
+            ...?_player,
             'hp': data['player_hp'],
             'max_hp': data['player_max_hp'],
             'username': _player?['username'] ?? 'Ты',
@@ -114,6 +110,17 @@ class _CombatScreenState extends State<CombatScreen> {
           _log = data['log'] ?? [];
           _isLoading = false;
         });
+
+        String className = _player?['character_class']?['name'] ?? 'Воин';
+
+        _game = BattleGame(
+          playerClass: className,
+          enemySlug: widget.enemySlug,
+          // Очистка пути теперь внутри BattleGame через AssetPaths
+          enemyImagePath: data['enemy_image'] ?? '',
+          bgImagePath: data['enemy_bg'] ?? '',
+          shouldFlip: data['enemy_flip'] ?? false,
+        );
       }
     } else {
       setState(() {
@@ -139,13 +146,13 @@ class _CombatScreenState extends State<CombatScreen> {
 
   void _applyState(Map<String, dynamic> data) {
     List<dynamic> newLog = data['log'] ?? [];
-    
+
     for (var entry in newLog) {
       String msg = entry['message'] ?? '';
       if (msg.contains('Победа!')) {
         final expMatch = RegExp(r'\+(\d+)\s*XP').firstMatch(msg);
         final goldMatch = RegExp(r'\+(\d+)\s*золота').firstMatch(msg);
-        
+
         if (expMatch != null) _rewardExp = int.parse(expMatch.group(1)!);
         if (goldMatch != null) _rewardGold = int.parse(goldMatch.group(1)!);
       }
@@ -161,7 +168,7 @@ class _CombatScreenState extends State<CombatScreen> {
       _status = data['status'];
       _isLoading = false;
       _isActing = false;
-      
+
       if (data['dropped_items'] != null) {
         _droppedItems = data['dropped_items'];
       }
@@ -190,32 +197,34 @@ class _CombatScreenState extends State<CombatScreen> {
     setState(() => _isActing = true);
 
     if (action == 'attack') {
-      _game.heroAttack();
-      
-      await Future.delayed(const Duration(milliseconds: 300));
-      _game.enemyHit();
+      // Проверка: _game инициализирована (защита от race condition)
+      if (_game != null) {
+        _game.heroAttack();
+
+        await Future.delayed(const Duration(milliseconds: 300));
+        _game.enemyHit();
+      }
 
       final result = await ApiClient.combatAction(_combatId!, action);
       if (!mounted) return;
 
       if (result['success'] == true) {
         _applyState(result['data']);
-        
+
         setState(() {
           _isEnemyHit = true;
           _damageText = _getLastDamage();
         });
 
         await Future.delayed(const Duration(milliseconds: 400));
-        
-        setState(() {
-          _isEnemyHit = false; 
-        }); 
 
-        if (_status == 'won') {
+        setState(() {
+          _isEnemyHit = false;
+        });
+
+        if (_status == 'won' && _game != null) {
           _game.enemyDie();
         }
-
       } else {
         setState(() => _isActing = false);
         _showMessage(result['error'] ?? 'Ошибка');
@@ -262,8 +271,10 @@ class _CombatScreenState extends State<CombatScreen> {
           return FadeTransition(
             opacity: anim1,
             child: SlideTransition(
-              position: Tween<Offset>(begin: const Offset(0, -0.1), end: Offset.zero)
-                  .animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+              position: Tween<Offset>(
+                      begin: const Offset(0, -0.1), end: Offset.zero)
+                  .animate(CurvedAnimation(
+                      parent: anim1, curve: Curves.easeOut)),
               child: child,
             ),
           );
@@ -278,9 +289,18 @@ class _CombatScreenState extends State<CombatScreen> {
         barrierDismissible: false,
         builder: (_) => AlertDialog(
           backgroundColor: const Color(0xFF1A0A0A),
-          shape: RoundedRectangleBorder(side: const BorderSide(color: Color(0xFF3A3A3A), width: 2), borderRadius: BorderRadius.circular(16)),
-          title: const Text('🏃 ПОБЕГ', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-          content: const Text('Ты сбежал с поля боя.', style: TextStyle(color: Colors.white70, fontSize: 16), textAlign: TextAlign.center),
+          shape: RoundedRectangleBorder(
+              side: const BorderSide(color: Color(0xFF3A3A3A), width: 2),
+              borderRadius: BorderRadius.circular(16)),
+          title: const Text('🏃 ПОБЕГ',
+              style: TextStyle(
+                  color: Color(0xFFD4AF37),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+          content: const Text('Ты сбежал с поля боя.',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+              textAlign: TextAlign.center),
           actions: [
             Center(
               child: ElevatedButton(
@@ -288,7 +308,11 @@ class _CombatScreenState extends State<CombatScreen> {
                   Navigator.pop(context);
                   Navigator.pop(context);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A0A0A), foregroundColor: const Color(0xFFD4AF37), side: const BorderSide(color: Color(0xFFD4AF37), width: 2)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A0A0A),
+                    foregroundColor: const Color(0xFFD4AF37),
+                    side: const BorderSide(
+                        color: Color(0xFFD4AF37), width: 2)),
                 child: const Text('ЗАКРЫТЬ'),
               ),
             ),
@@ -355,13 +379,11 @@ class _CombatScreenState extends State<CombatScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              
               const Text(
                 'Награда:',
                 style: TextStyle(color: Colors.white54, fontSize: 14),
               ),
               const SizedBox(height: 8),
-              
               Container(
                 height: 120,
                 padding: const EdgeInsets.all(8),
@@ -372,11 +394,15 @@ class _CombatScreenState extends State<CombatScreen> {
                 ),
                 child: _droppedItems.isEmpty
                     ? const Center(
-                        child: Text('Добычи нет', style: TextStyle(color: Colors.white38, fontStyle: FontStyle.italic)),
+                        child: Text('Добычи нет',
+                            style: TextStyle(
+                                color: Colors.white38,
+                                fontStyle: FontStyle.italic)),
                       )
                     : GridView.builder(
                         physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 4,
                           crossAxisSpacing: 8,
                           mainAxisSpacing: 8,
@@ -385,12 +411,16 @@ class _CombatScreenState extends State<CombatScreen> {
                         itemBuilder: (context, index) {
                           final item = _droppedItems[index];
                           final slug = item['slug'];
-                          
+
                           Color rarityColor = Colors.grey;
-                          if (item['rarity'] == 'uncommon') rarityColor = const Color(0xFF4A8B4A);
-                          if (item['rarity'] == 'rare') rarityColor = const Color(0xFF3A5A8B);
-                          if (item['rarity'] == 'epic') rarityColor = const Color(0xFF8B3A8B);
-                          if (item['rarity'] == 'legendary') rarityColor = const Color(0xFFD4AF37);
+                          if (item['rarity'] == 'uncommon')
+                            rarityColor = const Color(0xFF4A8B4A);
+                          if (item['rarity'] == 'rare')
+                            rarityColor = const Color(0xFF3A5A8B);
+                          if (item['rarity'] == 'epic')
+                            rarityColor = const Color(0xFF8B3A8B);
+                          if (item['rarity'] == 'legendary')
+                            rarityColor = const Color(0xFFD4AF37);
 
                           return TweenAnimationBuilder<double>(
                             tween: Tween(begin: 0.0, end: 1.0),
@@ -411,7 +441,8 @@ class _CombatScreenState extends State<CombatScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF2A1A1A),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: rarityColor.withOpacity(0.7)),
+                                  border: Border.all(
+                                      color: rarityColor.withOpacity(0.7)),
                                 ),
                                 child: Stack(
                                   children: [
@@ -419,10 +450,12 @@ class _CombatScreenState extends State<CombatScreen> {
                                       child: Padding(
                                         padding: const EdgeInsets.all(8.0),
                                         child: Image.asset(
-                                          'assets/images/items/$slug.png',
+                                          AssetPaths.forFlutter('items/$slug.png'),
                                           fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Icon(Icons.inventory_2, color: rarityColor, size: 30);
+                                          errorBuilder: (context, error,
+                                              stackTrace) {
+                                            return Icon(Icons.inventory_2,
+                                                color: rarityColor, size: 30);
                                           },
                                         ),
                                       ),
@@ -431,12 +464,16 @@ class _CombatScreenState extends State<CombatScreen> {
                                       right: 4,
                                       bottom: 2,
                                       child: Text(
-                                        'x${item['quantity']}', 
+                                        'x${item['quantity']}',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                                          shadows: [
+                                            Shadow(
+                                                color: Colors.black,
+                                                blurRadius: 2)
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -449,12 +486,11 @@ class _CombatScreenState extends State<CombatScreen> {
                       ),
               ),
               const SizedBox(height: 12),
-              
               Text(
                 'Золото: $_rewardGold  |  Опыт: $_rewardExp',
-                style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 14),
+                style:
+                    const TextStyle(color: Color(0xFFD4AF37), fontSize: 14),
               ),
-              
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -467,11 +503,13 @@ class _CombatScreenState extends State<CombatScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFD4AF37),
                     foregroundColor: const Color(0xFF1A0A0A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: const Text(
                     'ЗАБРАТЬ НАГРАДУ',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -506,7 +544,10 @@ class _CombatScreenState extends State<CombatScreen> {
             children: [
               Text(
                 item['name'] ?? 'Неизвестный предмет',
-                style: TextStyle(color: rarityColor, fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: rarityColor,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -514,19 +555,38 @@ class _CombatScreenState extends State<CombatScreen> {
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
               const Divider(color: Color(0xFF3A1A1A), height: 24),
-              
-              const Text('Характеристики:', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+              const Text('Характеристики:',
+                  style: TextStyle(
+                      color: Colors.white70, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              
-              if ((item['bonus_strength'] ?? 0) > 0) Text('+${item['bonus_strength']} Сила', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
-              if ((item['bonus_agility'] ?? 0) > 0) Text('+${item['bonus_agility']} Ловкость', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
-              if ((item['bonus_intelligence'] ?? 0) > 0) Text('+${item['bonus_intelligence']} Интеллект', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
-              if ((item['bonus_endurance'] ?? 0) > 0) Text('+${item['bonus_endurance']} Выносливость', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
-              if ((item['bonus_health'] ?? 0) > 0) Text('+${item['bonus_health']} HP', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
-              
-              if ((item['bonus_strength'] ?? 0) == 0 && (item['bonus_agility'] ?? 0) == 0 && (item['bonus_health'] ?? 0) == 0)
-                const Text('Нет бонусов к характеристикам', style: TextStyle(color: Colors.white38, fontSize: 12, fontStyle: FontStyle.italic)),
-              
+              if ((item['bonus_strength'] ?? 0) > 0)
+                Text('+${item['bonus_strength']} Сила',
+                    style: const TextStyle(
+                        color: Color(0xFF6BBF6B), fontSize: 14)),
+              if ((item['bonus_agility'] ?? 0) > 0)
+                Text('+${item['bonus_agility']} Ловкость',
+                    style: const TextStyle(
+                        color: Color(0xFF6BBF6B), fontSize: 14)),
+              if ((item['bonus_intelligence'] ?? 0) > 0)
+                Text('+${item['bonus_intelligence']} Интеллект',
+                    style: const TextStyle(
+                        color: Color(0xFF6BBF6B), fontSize: 14)),
+              if ((item['bonus_endurance'] ?? 0) > 0)
+                Text('+${item['bonus_endurance']} Выносливость',
+                    style: const TextStyle(
+                        color: Color(0xFF6BBF6B), fontSize: 14)),
+              if ((item['bonus_health'] ?? 0) > 0)
+                Text('+${item['bonus_health']} HP',
+                    style: const TextStyle(
+                        color: Color(0xFF6BBF6B), fontSize: 14)),
+              if ((item['bonus_strength'] ?? 0) == 0 &&
+                  (item['bonus_agility'] ?? 0) == 0 &&
+                  (item['bonus_health'] ?? 0) == 0)
+                const Text('Нет бонусов к характеристикам',
+                    style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -603,12 +663,17 @@ class _CombatScreenState extends State<CombatScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2A0A0A),
                     foregroundColor: const Color(0xFF8B0000),
-                    side: const BorderSide(color: Color(0xFF8B0000), width: 2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: const BorderSide(
+                        color: Color(0xFF8B0000), width: 2),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: const Text(
                     'ПРИНЯТЬ СУДЬБУ',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1),
                   ),
                 ),
               ),
@@ -621,7 +686,8 @@ class _CombatScreenState extends State<CombatScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: const Color(0xFF8B0000)),
+      SnackBar(
+          content: Text(message), backgroundColor: const Color(0xFF8B0000)),
     );
   }
 
@@ -629,7 +695,6 @@ class _CombatScreenState extends State<CombatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // ЧЕРНЫЙ ФОН ВОКРУГ ВСЕГО ЭКРАНА (как было раньше)
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -639,7 +704,9 @@ class _CombatScreenState extends State<CombatScreen> {
         ),
         child: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
+              ? const Center(
+                  child:
+                      CircularProgressIndicator(color: Color(0xFFD4AF37)))
               : _error != null
                   ? _buildError()
                   : _buildCombat(),
@@ -657,7 +724,9 @@ class _CombatScreenState extends State<CombatScreen> {
           children: [
             const Icon(Icons.error, color: Color(0xFF8B0000), size: 60),
             const SizedBox(height: 20),
-            Text(_error!, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+            Text(_error!,
+                style:
+                    const TextStyle(color: Colors.white70, fontSize: 16)),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
@@ -679,49 +748,62 @@ class _CombatScreenState extends State<CombatScreen> {
     final enemyHp = _enemy?['hp'] ?? 0;
     final enemyMaxHp = _enemy?['max_hp'] ?? 100;
 
+    // Фон арены: полный путь для AssetImage, errorBuilder на случай отсутствия
+    String bgPath = AssetPaths.forFlutter('ui/battle_bg.png');
+    if (_enemy?['bg'] != null && _enemy!['bg'].toString().isNotEmpty) {
+      bgPath = AssetPaths.forFlutter(_enemy!['bg']);
+    }
+
     return Column(
       children: [
-        // ВЕРХНЯЯ ПАНЕЛЬ (Имя и HP врага)
         Container(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           child: Column(
             children: [
               Text(
                 '⚔️ ${_enemy?['name'] ?? 'Враг'}',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37), letterSpacing: 2),
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFD4AF37),
+                    letterSpacing: 2),
               ),
               const SizedBox(height: 12),
               _buildHpBar(enemyHp, enemyMaxHp, const Color(0xFF8B0000)),
             ],
           ),
         ),
-
-        // АРЕНА (FLAME) - В ЗОЛОТОЙ РАМКЕ
         Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFD4AF37), width: 2), // Золотая рамка
+              border:
+                  Border.all(color: const Color(0xFFD4AF37), width: 2),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.2), blurRadius: 10, spreadRadius: 2)
+                BoxShadow(
+                    color: const Color(0xFFD4AF37).withOpacity(0.2),
+                    blurRadius: 10,
+                    spreadRadius: 2)
               ],
-              image: const DecorationImage(
-                image: AssetImage('assets/images/ui/battle_bg.png'),
+              image: DecorationImage(
+                image: AssetImage(bgPath),
                 fit: BoxFit.cover,
+                // Если фон не загрузился — не крашимся, показываем тёмный фон
+                onError: (error, stack) {
+                  debugPrint('⚠️ Battle bg not found: $bgPath');
+                },
               ),
+              color: Colors.black, // фоллбэк, если image не загрузится
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Stack(
                 children: [
-                  // Легкое затемнение арены
                   Positioned.fill(
                     child: Container(color: Colors.black.withOpacity(0.2)),
                   ),
-                  
                   GameWidget(game: _game),
-                  
                   if (_isEnemyHit && _damageText.isNotEmpty)
                     Positioned(
                       right: 60,
@@ -740,7 +822,12 @@ class _CombatScreenState extends State<CombatScreen> {
                                   color: Color(0xFFFF4D4D),
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
-                                  shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(2, 2))],
+                                  shadows: [
+                                    Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 4,
+                                        offset: Offset(2, 2))
+                                  ],
                                 ),
                               ),
                             ),
@@ -753,12 +840,11 @@ class _CombatScreenState extends State<CombatScreen> {
             ),
           ),
         ),
-
-        // ЛОГ БОЯ - Стильная панель
         Container(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           height: 80,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFF1A0A0A),
             border: Border.all(color: const Color(0xFF3A1A1A), width: 1),
@@ -776,29 +862,39 @@ class _CombatScreenState extends State<CombatScreen> {
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(entry['message'] ?? '', style: TextStyle(color: color, fontSize: 13)),
+                child: Text(entry['message'] ?? '',
+                    style: TextStyle(color: color, fontSize: 13)),
               );
             },
           ),
         ),
-
-        // НИЖНЯЯ ПАНЕЛЬ (Кнопки)
         Container(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A), label: '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp'),
+              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A),
+                  label:
+                      '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp'),
               const SizedBox(height: 16),
-
               if (_status == 'active')
                 Row(
                   children: [
                     Expanded(
-                      child: _ActionButton(text: '⚔ АТАКА', color: const Color(0xFF8B0000), onPressed: _isActing ? null : () => _doAction('attack')),
+                      child: _ActionButton(
+                          text: '⚔ АТАКА',
+                          color: const Color(0xFF8B0000),
+                          onPressed: _isActing
+                              ? null
+                              : () => _doAction('attack')),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _ActionButton(text: '🛡 ЗАЩИТА', color: const Color(0xFF3A5A8B), onPressed: _isActing ? null : () => _doAction('defend')),
+                      child: _ActionButton(
+                          text: '🛡 ЗАЩИТА',
+                          color: const Color(0xFF3A5A8B),
+                          onPressed: _isActing
+                              ? null
+                              : () => _doAction('defend')),
                     ),
                   ],
                 ),
@@ -808,14 +904,20 @@ class _CombatScreenState extends State<CombatScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isActing || _healthPotions <= 0 ? null : _usePotion,
+                    onPressed: _isActing || _healthPotions <= 0
+                        ? null
+                        : _usePotion,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A0A0A),
                       foregroundColor: const Color(0xFF6BBF6B),
-                      side: const BorderSide(color: Color(0xFF2A8B2A), width: 2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: const BorderSide(
+                          color: Color(0xFF2A8B2A), width: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: Text('🧪 ЗЕЛЬЕ HP ($_healthPotions)', style: const TextStyle(fontSize: 16, letterSpacing: 1)),
+                    child: Text('🧪 ЗЕЛЬЕ HP ($_healthPotions)',
+                        style: const TextStyle(
+                            fontSize: 16, letterSpacing: 1)),
                   ),
                 ),
               if (_status == 'active') const SizedBox(height: 8),
@@ -828,10 +930,14 @@ class _CombatScreenState extends State<CombatScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A0A0A),
                       foregroundColor: const Color(0xFF8B8B8B),
-                      side: const BorderSide(color: Color(0xFF3A3A3A), width: 2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: const BorderSide(
+                          color: Color(0xFF3A3A3A), width: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('🏃 ПОБЕГ', style: TextStyle(fontSize: 16, letterSpacing: 1)),
+                    child: const Text('🏃 ПОБЕГ',
+                        style: TextStyle(
+                            fontSize: 16, letterSpacing: 1)),
                   ),
                 ),
             ],
@@ -849,7 +955,9 @@ class _CombatScreenState extends State<CombatScreen> {
         if (label != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 14)),
           ),
         Stack(
           children: [
@@ -865,12 +973,17 @@ class _CombatScreenState extends State<CombatScreen> {
               widthFactor: percent.clamp(0.0, 1.0),
               child: Container(
                 height: 24,
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+                decoration: BoxDecoration(
+                    color: color, borderRadius: BorderRadius.circular(3)),
               ),
             ),
             Positioned.fill(
               child: Center(
-                child: Text('$hp / $maxHp', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                child: Text('$hp / $maxHp',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13)),
               ),
             ),
           ],
@@ -885,7 +998,8 @@ class _ActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback? onPressed;
 
-  const _ActionButton({required this.text, required this.color, required this.onPressed});
+  const _ActionButton(
+      {required this.text, required this.color, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -897,9 +1011,14 @@ class _ActionButton extends StatelessWidget {
           backgroundColor: const Color(0xFF1A0A0A),
           foregroundColor: Colors.white,
           side: BorderSide(color: color, width: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8)),
         ),
-        child: Text(text, style: const TextStyle(fontSize: 15, letterSpacing: 1, fontWeight: FontWeight.bold)),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 15,
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold)),
       ),
     );
   }

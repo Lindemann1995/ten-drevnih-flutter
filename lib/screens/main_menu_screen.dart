@@ -9,7 +9,8 @@ import 'news_screen.dart';
 import 'scene_screen.dart';
 import 'hunt_screen.dart';
 import 'stats_screen.dart';
-import '../main.dart'; // Импортируем routeObserver
+import '../main.dart';
+import 'quest_list_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -18,7 +19,6 @@ class MainMenuScreen extends StatefulWidget {
   State<MainMenuScreen> createState() => _MainMenuScreenState();
 }
 
-// ДОБАВЛЯЕМ with RouteAware СЮДА
 class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
   int _currentIndex = 0;
   Map<String, dynamic>? _profile;
@@ -28,6 +28,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
   void initState() {
     super.initState();
     _loadProfile();
+    _checkOfflineReward(); 
     
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       systemNavigationBarColor: Colors.transparent,
@@ -37,24 +38,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
     ));
   }
 
-  // ПОДПИСЫВАЕМСЯ НА СОБЫТИЯ НАВИГАЦИИ
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     routeObserver.subscribe(this, ModalRoute.of(context)!);
   }
 
-  // ОТПИСЫВАЕМСЯ ПРИ УНИЧТОЖЕНИИ
   @override
   void dispose() {
     routeObserver.unsubscribe(this);
     super.dispose();
   }
 
-  // СРАБАТЫВАЕТ, КОГДА ВОЗВРАЩАЕМСЯ С ДРУГОГО ЭКРАНА
   @override
   void didPopNext() {
-    _loadProfile(); // Автоматически обновляем профиль
+    _loadProfile(); 
   }
 
   Future<void> _loadProfile() async {
@@ -64,6 +62,64 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
         _profile = result['data'];
       });
     }
+  }
+
+  Future<void> _checkOfflineReward() async {
+    final result = await ApiClient.claimOfflineProgress();
+    if (result['success'] == true) {
+      if (!mounted) return;
+      _showOfflineRewardDialog(result['data']);
+    }
+  }
+
+  void _showOfflineRewardDialog(Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A0A0A),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '⏳ ПОКА ТЕБЯ НЕ БЫЛО',
+          style: TextStyle(color: Color(0xFFD4AF37), fontSize: 20, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Ты отсутствовал ${data['hours']} ч.',
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            const Icon(Icons.monetization_on, color: Color(0xFFD4AF37), size: 60),
+            const SizedBox(height: 10),
+            Text(
+              '+${data['gold_earned']} золота',
+              style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _loadProfile(); 
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: const Color(0xFF0A0A0A),
+              ),
+              child: const Text('ЗАБРАТЬ', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -232,7 +288,7 @@ class _HomeTab extends StatelessWidget {
                 childAspectRatio: 1.0, 
                 children: [
                   _buildGridButton('📜', 'ЗАДАНИЯ', () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SceneScreen()));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const QuestListScreen()));
                   }),
                   _buildGridButton('🎭', 'ПРОФИЛЬ', () {
                     onNavigate(3); 
@@ -278,7 +334,6 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  // КРАСИВАЯ ПОЛОСКА ОПЫТА
   Widget _buildExpBar(int currentExp, int maxExp) {
     final percent = maxExp > 0 ? (currentExp / maxExp).clamp(0.0, 1.0) : 0.0;
     final remaining = maxExp - currentExp;

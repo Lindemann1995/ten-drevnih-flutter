@@ -30,6 +30,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isLoading) return; // Защита от двойного тапа
+
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
@@ -40,41 +42,48 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    final result = await ApiClient.login(
-      username: username,
-      password: password,
-    );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (result['success'] == true) {
-      _showSuccess('Вход выполнен!');
-
-      // Загружаем профиль, чтобы узнать, выбран ли класс
-      final profileResult = await ApiClient.getProfile();
+    try {
+      final result = await ApiClient.login(
+        username: username,
+        password: password,
+      );
 
       if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
 
-      final hasClass =
-          profileResult['success'] == true &&
-          profileResult['data']['character_class'] != null;
+      if (result['success'] == true) {
+        _showSuccess('Вход выполнен!');
 
-      if (hasClass) {
-        // Класс уже выбран → сразу на карту
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MapScreen()),
-        );
+        // Загружаем профиль, чтобы узнать, выбран ли класс
+        final profileResult = await ApiClient.getProfile();
+
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+
+        final hasClass = profileResult['success'] == true &&
+            profileResult['data']['character_class'] != null;
+
+        if (hasClass) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MapScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ClassSelectionScreen()),
+          );
+        }
       } else {
-        // Класса нет → на выбор класса
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ClassSelectionScreen()),
-        );
+        // ВОТ ЭТОГО НЕ ХВАТАЛО — вывод ошибки!
+        _showError(result['error'] ?? 'Неверный ник или пароль');
       }
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Ошибка сети: $e');
+    } finally {
+      // КРИТИЧНО: сбрасываем загрузку ВСЕГДА, даже если была ошибка
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

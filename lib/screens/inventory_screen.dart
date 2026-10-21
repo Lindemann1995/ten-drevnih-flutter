@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
+import '../utils/asset_paths.dart'; // 🆕 Добавили импорт
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -28,7 +29,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (!mounted) return;
     if (invResult['success'] == true) {
       setState(() {
-        _items = invResult['data']['items'] as List<dynamic>;
+        _items = (invResult['data']['items'] as List<dynamic>)
+            .where((item) => item['is_equipped'] != true) // 🆕 Скрываем надетые из рюкзака
+    .toList();
         if (eqResult['success'] == true) {
           _equipment = eqResult['data']['equipment'] ?? {};
         }
@@ -155,7 +158,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         child: Padding(
                                           padding: const EdgeInsets.all(4.0),
                                           child: Image.asset(
-                                            'assets/images/items/${item['slug']}.png',
+                                            // 🆕 ИСПОЛЬЗУЕМ НАШУ УТИЛИТУ
+                                            AssetPaths.forItem(item['image_path'], item['slug']),
                                             fit: BoxFit.contain,
                                             errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, color: _rarityColor(rarity), size: 20),
                                           ),
@@ -192,7 +196,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  // Слот с рамкой (используем твою картинку slot_frame.png)
+  // Слот с рамкой
   Widget _buildSlot(String slotType) {
     final eq = _equipment[slotType];
     final hasItem = eq != null;
@@ -202,7 +206,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Сама рамка слота (УВЕЛИЧИЛИ до 80x80)
+          // Сама рамка слота
           Image.asset(
             'assets/images/ui/slot_frame.png', 
             width: 100, 
@@ -211,12 +215,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
           // Если предмет надет — показываем его картинку поверх рамки
           if (hasItem)
             Padding(
-              padding: const EdgeInsets.all(12.0), // Чуть больше отступ, чтобы предмет не залезал на рамку
+              padding: const EdgeInsets.all(12.0),
               child: Image.asset(
-                'assets/images/items/${eq['slug']}.png', 
-                width: 56, // Размер предмета внутри рамки
+                // 🆕 ИСПОЛЬЗУЕМ НАШУ УТИЛИТУ
+                AssetPaths.forItem(eq['image_path'], eq['slug']), 
+                width: 56,
                 height: 56,
                 fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, color: _rarityColor(eq['rarity'] ?? 'common'), size: 40),
               ),
             ),
         ],

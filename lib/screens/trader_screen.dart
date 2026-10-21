@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
+import '../utils/asset_paths.dart'; // 🆕 Добавили импорт
 
 class TraderScreen extends StatefulWidget {
   final String traderSlug;
@@ -12,7 +13,6 @@ class TraderScreen extends StatefulWidget {
   });
 
   @override
-  @override
   State<TraderScreen> createState() => _TraderScreenState();
 }
 
@@ -23,7 +23,6 @@ class _TraderScreenState extends State<TraderScreen> {
   List<dynamic> _items = [];
   int _playerGold = 0;
 
-  @override
   @override
   void initState() {
     super.initState();
@@ -119,7 +118,6 @@ class _TraderScreenState extends State<TraderScreen> {
     }
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -269,7 +267,6 @@ class _ItemCard extends StatelessWidget {
     required this.onBuy,
   });
 
-  @override
   @override
   Widget build(BuildContext context) {
     final price = item['price'] ?? 0;

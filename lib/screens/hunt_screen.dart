@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import 'combat_screen.dart';
+import 'npc_screen.dart'; // 🆕 Импорт экрана NPC
 
 class HuntScreen extends StatefulWidget {
   const HuntScreen({super.key});
@@ -44,7 +45,7 @@ class _HuntScreenState extends State<HuntScreen> {
     }
   }
 
-  // 2. Загружаем мобов для выбранной локации (ТА САМАЯ ФУНКЦИЯ)
+  // 2. Загружаем мобов для выбранной локации
   Future<void> _loadEnemies(String slug) async {
     setState(() { _isLoading = true; _error = null; });
 
@@ -68,6 +69,15 @@ class _HuntScreenState extends State<HuntScreen> {
       MaterialPageRoute(
         builder: (_) => CombatScreen(enemySlug: enemySlug, enemyName: enemyName),
       ),
+    );
+  }
+
+  // 🆕 Функция для открытия диалога с NPC
+  void _openNpcDialogue() {
+    // ВАЖНО: слаг должен совпадать с тем, что ты создал в админке!
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NpcScreen(npcSlug: 'elder')),
     );
   }
 
@@ -141,8 +151,33 @@ class _HuntScreenState extends State<HuntScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _enemies.length,
+      // 🆕 itemCount увеличиваем на 1 для кнопки NPC
+      itemCount: _enemies.length + 1,
       itemBuilder: (context, index) {
+        // Если это последний элемент — рисуем кнопку NPC
+        if (index == _enemies.length) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 16.0, bottom: 32.0),
+            child: SizedBox(
+              height: 60,
+              child: ElevatedButton.icon(
+                onPressed: _openNpcDialogue,
+                icon: const Icon(Icons.person, color: Color(0xFFD4AF37), size: 28),
+                label: const Text(
+                  'ПОГОВОРИТЬ СО СТАРЕЙШИНОЙ',
+                  style: TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A0A0A),
+                  side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Обычные мобы
         final enemy = _enemies[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 16),

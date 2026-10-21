@@ -1,22 +1,30 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import '../utils/asset_paths.dart';
+import '../utils/game_constants.dart';
 
 class BattleGame extends FlameGame {
-  final String playerClass; 
+  final String playerClass;
   final String enemySlug;
+  final String enemyImagePath;
+  final String bgImagePath;
+  final bool shouldFlip;
 
-  BattleGame({required this.playerClass, required this.enemySlug});
+  BattleGame({
+    required this.playerClass,
+    required this.enemySlug,
+    this.enemyImagePath = '',
+    this.bgImagePath = '',
+    this.shouldFlip = false,
+  });
 
-  // ВОТ ТАК ПРАВИЛЬНО ЗАДАЕТСЯ ПРОЗРАЧНЫЙ ФОН В НОВЫХ ВЕРСИЯХ FLAME
   @override
   Color backgroundColor() => Colors.transparent;
 
   late SpriteAnimationComponent hero;
   late SpriteComponent enemy;
-  
-  // ... (дальше идет твой код onLoad и т.д.)
-  
+
   bool _isAttacking = false;
   late SpriteAnimation idleAnim;
   late SpriteAnimation attackAnim;
@@ -25,30 +33,32 @@ class BattleGame extends FlameGame {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // 1. ОПРЕДЕЛЯЕМ КЛАСС
-    String idlePath = 'characters/hero_idle.png'; // По умолчанию Воин (Рыцарь)
-    String attackPath = 'characters/hero_attack.png';
+    // 1. ГЕРОЙ
+    String idleRelPath = 'characters/hero_idle.png';
+    String attackRelPath = 'characters/hero_attack.png';
     String cls = playerClass.toLowerCase();
 
     if (cls.contains('лучник') || cls.contains('archer')) {
-      idlePath = 'characters/hero_archer_idle.png';
-      attackPath = 'characters/hero_archer_attack.png';
-    } else if (cls.contains('копейщик') || cls.contains('копьеносец') || cls.contains('spearman')) {
-      idlePath = 'characters/hero_spearman_idle.png';
-      attackPath = 'characters/hero_spearman_attack.png';
+      idleRelPath = 'characters/hero_archer_idle.png';
+      attackRelPath = 'characters/hero_archer_attack.png';
+    } else if (cls.contains('копейщик') ||
+        cls.contains('копьеносец') ||
+        cls.contains('spearman')) {
+      idleRelPath = 'characters/hero_spearman_idle.png';
+      attackRelPath = 'characters/hero_spearman_attack.png';
     } else if (cls.contains('жнец') || cls.contains('reaper')) {
-      idlePath = 'characters/hero_reaper_idle.png';
-      attackPath = 'characters/hero_reaper_attack.png';
+      idleRelPath = 'characters/hero_reaper_idle.png';
+      attackRelPath = 'characters/hero_reaper_attack.png';
     } else if (cls.contains('варвар') || cls.contains('barbarian')) {
-      idlePath = 'characters/hero_barbarian_idle.png';
-      attackPath = 'characters/hero_barbarian_attack.png';
+      idleRelPath = 'characters/hero_barbarian_idle.png';
+      attackRelPath = 'characters/hero_barbarian_attack.png';
     }
 
-    // 2. ЗАГРУЖАЕМ ГЕРОЯ
-    final heroIdleImage = await images.load(idlePath);
-    final heroAttackImage = await images.load(attackPath);
+    final heroIdleImage = await images.load(AssetPaths.forFlame(idleRelPath));
+    final heroAttackImage =
+        await images.load(AssetPaths.forFlame(attackRelPath));
 
-    double frameSize = heroIdleImage.height.toDouble(); 
+    double frameSize = heroIdleImage.height.toDouble();
     int idleFramesCount = (heroIdleImage.width / frameSize).round();
     int attackFramesCount = (heroAttackImage.width / frameSize).round();
 
@@ -56,7 +66,7 @@ class BattleGame extends FlameGame {
       heroIdleImage,
       SpriteAnimationData.sequenced(
         amount: idleFramesCount,
-        stepTime: 0.15, 
+        stepTime: 0.15,
         textureSize: Vector2(frameSize, frameSize),
       ),
     );
@@ -64,67 +74,59 @@ class BattleGame extends FlameGame {
     attackAnim = SpriteAnimation.fromFrameData(
       heroAttackImage,
       SpriteAnimationData.sequenced(
-        amount: attackFramesCount, 
-        stepTime: 0.1, 
+        amount: attackFramesCount,
+        stepTime: 0.1,
         textureSize: Vector2(frameSize, frameSize),
       ),
     );
-    attackAnim.loop = false; 
+    attackAnim.loop = false;
 
-    // 3. ОПРЕДЕЛЯЕМ ВРАГА (ДИНАМИЧЕСКИ)
-    // По умолчанию ставим волка
-       // 3. ОПРЕДЕЛЯЕМ ВРАГА (по слагу из базы)
-    String mobPath = 'characters/enemies/hungry_wolf.png'; // По умолчанию
-    bool shouldFlip = false; 
+    // 2. ВРАГ — с фоллбэком на случай битого пути
+    final mobImage = await _loadEnemySprite(enemyImagePath);
 
-    // Настраиваем картинку и разворот в зависимости от слага
-    if (enemySlug.contains('forest_lord')) {
-      mobPath = 'characters/enemies/forest_lord.png';
-      shouldFlip = true; // Босс разворачивается
-    } else if (enemySlug.contains('archer') || enemySlug.contains('лучник')) {
-      mobPath = 'characters/enemies/blood_archer.png';
-      // shouldFlip = true;  <--- МЫ ЭТО ЗАКОММЕНТИРОВАЛИ (убрали разворот)
-    } else if (enemySlug.contains('alpha_wolf')) {
-      mobPath = 'characters/enemies/alpha_wolf.png';
-    } else if (enemySlug.contains('forest_wolf')) {
-      mobPath = 'characters/enemies/forest_wolf.png';
-    } else if (enemySlug.contains('mad_bear')) {
-      mobPath = 'characters/enemies/mad_bear.png';
-    } else if (enemySlug.contains('bear')) {
-      mobPath = 'characters/enemies/brown_bear.png';
-    } else if (enemySlug.contains('poison_spider')) {
-      mobPath = 'characters/enemies/poison_spider.png';
-    } else if (enemySlug.contains('spider')) {
-      mobPath = 'characters/enemies/giant_spider.png';
-    }
-
-    final mobImage = await images.load(mobPath);
-
-    // 4. РАЗМЕЩЕНИЕ
+    // 3. РАЗМЕЩЕНИЕ
     hero = SpriteAnimationComponent(
       animation: idleAnim,
-      size: Vector2(150, 150), 
-      position: Vector2(40, size.y - -30), 
-      anchor: Anchor.bottomLeft, 
+      size: Vector2(150, 150),
+      position: Vector2(40, size.y - -30),
+      anchor: Anchor.bottomLeft,
     );
 
-    // Враг (справа)
+    // Логика отражения зависит ТОЛЬКО от галочки в админке (shouldFlip)
     enemy = SpriteComponent(
       sprite: Sprite(mobImage),
-      size: Vector2(120, 120), 
-      position: Vector2(size.x - 40, size.y - -10), 
-      anchor: shouldFlip ? Anchor.bottomLeft : Anchor.bottomRight, 
+      size: Vector2(120, 120),
+      position: Vector2(size.x - 40, size.y - -10),
+      anchor: shouldFlip ? Anchor.bottomLeft : Anchor.bottomRight,
     );
 
     if (shouldFlip) {
-       enemy.scale.x = -1;
+      enemy.scale.x = -1;
     }
 
     add(hero);
     add(enemy);
   }
 
-  // Анимация удара
+  /// Безопасная загрузка спрайта врага с фоллбэком на волка.
+  Future<dynamic> _loadEnemySprite(String rawPath) async {
+    final cleanPath = rawPath.isEmpty
+        ? GameConstants.fallbackEnemySprite
+        : AssetPaths.forFlame(rawPath);
+
+    try {
+      return await images.load(cleanPath);
+    } catch (e) {
+      debugPrint('⚠️ Enemy sprite not found: "$cleanPath" — using fallback wolf');
+      try {
+        return await images.load(GameConstants.fallbackEnemySprite);
+      } catch (e2) {
+        debugPrint('❌ Fallback sprite also failed: $e2');
+        rethrow;
+      }
+    }
+  }
+
   void heroAttack() async {
     if (_isAttacking) return;
     _isAttacking = true;
@@ -135,16 +137,16 @@ class BattleGame extends FlameGame {
     _isAttacking = false;
   }
 
-  // Реакция врага на удар
   void enemyHit() {
-    enemy.scale = Vector2(1.1, 1.1);
+    // Сохраняем знак scale.x, чтобы не сбросить отражение (shouldFlip)
+    final double signX = shouldFlip ? -1.0 : 1.0;
+    enemy.scale = Vector2(1.1 * signX, 1.1);
     Future.delayed(const Duration(milliseconds: 150), () {
-      enemy.scale = Vector2(1.0, 1.0);
+      enemy.scale = Vector2(1.0 * signX, 1.0);
     });
   }
 
-  // Смерть врага
   void enemyDie() {
-    enemy.opacity = 0.0; 
+    enemy.opacity = 0.0;
   }
 }
