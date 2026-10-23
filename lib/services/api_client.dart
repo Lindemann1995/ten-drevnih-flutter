@@ -420,4 +420,200 @@ class ApiClient {
     );
     return _handleResponse(response);
   }
+
+  // 🛠 КРАФТ
+  static Future<Map<String, dynamic>> getNpcRecipes(String npcSlug) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/npc/$npcSlug/recipes/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> learnRecipe(String scrollSlug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/craft/learn/'),
+      headers: _headers,
+      body: jsonEncode({'scroll_slug': scrollSlug}),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> craftItem(int recipeId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/craft/create/'),
+      headers: _headers,
+      body: jsonEncode({'recipe_id': recipeId}),
+    );
+    return _handleResponse(response);
+  }
+
+    static Future<Map<String, dynamic>> getPlayerScrolls() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/craft/scrolls/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // ===== ГИЛЬДИИ =====
+  static const String _guildUrl = 'https://dev.api.code-nest.ru/api/guilds';
+
+  // Инфо о моей гильдии
+  static Future<Map<String, dynamic>> getMyGuild() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/my/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Создать гильдию
+  static Future<Map<String, dynamic>> createGuild(String name, String tag) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/create/'),
+      headers: _headers,
+      body: jsonEncode({'name': name, 'tag': tag}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить список участников
+  static Future<Map<String, dynamic>> getGuildMembers() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/members/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Положить золото в казну
+  static Future<Map<String, dynamic>> depositGuildGold(int amount) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/treasury/deposit/'),
+      headers: _headers,
+      body: jsonEncode({'amount': amount}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Забрать золото из казны
+  static Future<Map<String, dynamic>> withdrawGuildGold(int amount) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/treasury/withdraw/'),
+      headers: _headers,
+      body: jsonEncode({'amount': amount}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить токен (нужно для WebSocket)
+  static Future<String?> getToken() async {
+    return _token;
+  }
+
+  // История чата
+  static Future<Map<String, dynamic>> getGuildChatHistory() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/chat/history/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить список всех гильдий (для вступления)
+  static Future<Map<String, dynamic>> getGuildList() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/list/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Подать заявку на вступление в гильдию
+  static Future<Map<String, dynamic>> applyToGuild(int guildId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/apply/'),
+      headers: _headers,
+      body: jsonEncode({'guild_id': guildId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Получить входящие заявки (для лидера/замов)
+  static Future<Map<String, dynamic>> getGuildApplications() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/applications/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Принять заявку
+  static Future<Map<String, dynamic>> acceptGuildApplication(int appId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/applications/accept/'),
+      headers: _headers,
+      body: jsonEncode({'application_id': appId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Отклонить заявку
+  static Future<Map<String, dynamic>> declineGuildApplication(int appId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/applications/decline/'),
+      headers: _headers,
+      body: jsonEncode({'application_id': appId}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить ресурсы в банке
+  static Future<Map<String, dynamic>> getBankItems() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/bank/items/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Положить ресурс в банк
+  static Future<Map<String, dynamic>> depositToBank(String itemSlug, int amount) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/bank/deposit/'),
+      headers: _headers,
+      body: jsonEncode({'item_slug': itemSlug, 'amount': amount}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Забрать ресурс из банка
+  static Future<Map<String, dynamic>> withdrawFromBank(String itemSlug, int amount) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/bank/withdraw/'),
+      headers: _headers,
+      body: jsonEncode({'item_slug': itemSlug, 'amount': amount}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить список улучшений
+  static Future<Map<String, dynamic>> getGuildUpgrades() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/upgrades/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Улучшить здание
+  static Future<Map<String, dynamic>> upgradeBuilding(String upgradeType) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/upgrades/upgrade/'),
+      headers: _headers,
+      body: jsonEncode({'upgrade_type': upgradeType}),
+    );
+    return _handleResponse(response);
+  }
 }

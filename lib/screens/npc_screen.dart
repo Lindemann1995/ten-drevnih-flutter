@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../utils/asset_paths.dart';
+import 'craft_screen.dart'; // 🆕 Импортируем наш новый экран
 
 class NpcScreen extends StatefulWidget {
   final String npcSlug;
@@ -103,7 +104,7 @@ class _NpcScreenState extends State<NpcScreen> {
     if (res['success'] == true) {
       int exp = res['exp'] ?? 0;
       int gold = res['gold'] ?? 0;
-      List<dynamic> items = res['dropped_items'] ?? []; // <-- Получаем предметы
+      List<dynamic> items = res['dropped_items'] ?? [];
 
       showDialog(
         context: context,
@@ -149,7 +150,8 @@ class _NpcScreenState extends State<NpcScreen> {
                             child: Padding(
                               padding: const EdgeInsets.all(4.0),
                               child: Image.asset(
-                                'assets/images/items/${item['slug']}.png',
+                                // 🆕 ИСПОЛЬЗУЕМ НАШУ УТИЛИТУ, А НЕ ЖЕСТКИЙ ПУТЬ
+                                AssetPaths.forItem(item['image_path'], item['slug']),
                                 errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, color: rarityColor),
                               ),
                             ),
@@ -182,6 +184,19 @@ class _NpcScreenState extends State<NpcScreen> {
         SnackBar(content: Text(res['error'] ?? 'Ошибка'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  // 🆕 ФУНКЦИЯ ДЛЯ ОТКРЫТИЯ КРАФТА
+  void _openCraft() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CraftScreen(
+          npcSlug: widget.npcSlug, 
+          npcName: _npc!['name'],
+        ),
+      ),
+    ).then((_) => _loadNpc()); // Обновляем диалог после возврата
   }
 
   @override
@@ -252,6 +267,26 @@ class _NpcScreenState extends State<NpcScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // 🆕 КНОПКА КРАФТА (появляется только у Коваля или если есть рецепты)
+                  if (widget.npcSlug == 'koval' || widget.npcSlug == 'smith') // Проверь слаг своего кузнеца!
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _openCraft,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3A1A1A),
+                            foregroundColor: const Color(0xFFD4AF37),
+                            side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('🛠 ОТКРЫТЬ КУЗНИЦУ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+
                   ..._readyQuests.map((pq) {
                     final title = pq['quest_details']['title'];
                     return Padding(

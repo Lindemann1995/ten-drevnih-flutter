@@ -9,8 +9,12 @@ import 'news_screen.dart';
 import 'scene_screen.dart';
 import 'hunt_screen.dart';
 import 'stats_screen.dart';
+import 'craft_screen.dart';
+import 'trade_world_screen.dart';
+import 'world_map_screen.dart'; // 🆕 Импортируем наш новый экран локаций
 import '../main.dart';
 import 'quest_list_screen.dart';
+import 'guild_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -148,7 +152,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
                 });
               },
             ),
-            const MapScreen(),  
+            const MapScreen(), // Пока оставляем старую карту для вкладки "МИР"
             const ChatScreen(), 
             ProfileScreen(key: ValueKey(_profileKey)), 
           ],
@@ -293,7 +297,13 @@ class _HomeTab extends StatelessWidget {
                   _buildGridButton('🎭', 'ПРОФИЛЬ', () {
                     onNavigate(3); 
                   }),
-                  _buildGridButton('🏰', 'ГИЛЬДИИ', () => _showComingSoon(context, 'Гильдии')),
+                  _buildGridButton('🏰', 'ГИЛЬДИИ', () {
+                    Navigator.push(
+       
+                      context,
+                      MaterialPageRoute(builder: (_) => const GuildScreen()),
+                    );
+                  }),
                   _buildGridButton('🕸️', 'ПОДЗЕМЕЛЬЯ', () => _showComingSoon(context, 'Подземелья')),
                   _buildGridButton('🎒', 'СНАРЯЖЕНИЕ', () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen()));
@@ -312,18 +322,48 @@ class _HomeTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // 🆕 ОБНОВЛЕННЫЙ БЛОК БЫСТРЫХ ДЕЙСТВИЙ (Сеткой 4 в ряд)
+              GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 0.8,
                 children: [
+                  // ОХОТА
                   _buildQuickAction('🐺', 'ОХОТА', () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const HuntScreen()),
                     );
                   }),
-                  _buildQuickAction('🔥', 'РЕЙДЫ', () => _showComingSoon(context, 'Рейды')),
-                  _buildQuickAction('📜', 'ЗАДАНИЯ', () => _showComingSoon(context, 'Ежедневные задания')),
-                  _buildQuickAction('🏆', 'РЕЙТИНГИ', () => _showComingSoon(context, 'Рейтинги')),
+                  // ЛОКАЦИИ (новая вкладка)
+                  _buildQuickAction('🗺️', 'ЛОКАЦИИ', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WorldMapScreen()),
+                    );
+                  }),
+                  // ТОРГОВЛЯ
+                  _buildQuickAction('🛒', 'ТОРГОВЛЯ', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TradeWorldScreen()),
+                    );
+                  }),
+                  // КУЗНИЦА (КРАФТ)
+                  _buildQuickAction('⚒️', 'КУЗНИЦА', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CraftScreen(
+                          npcSlug: 'koval',
+                          npcName: 'Коваль',
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
               const SizedBox(height: 100), 
@@ -469,10 +509,11 @@ class _HomeTab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 70, 
-            height: 70, 
+            width: 60,
+            height: 60, 
             decoration: BoxDecoration(
               color: const Color(0xFF1A0A0A).withOpacity(0.8),
               border: Border.all(color: const Color(0xFFD4AF37), width: 1), 
@@ -486,17 +527,18 @@ class _HomeTab extends StatelessWidget {
               ],
             ),
             child: Center(
-              child: Text(icon, style: const TextStyle(fontSize: 32)),
+              child: Text(icon, style: const TextStyle(fontSize: 28)),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             label,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+              letterSpacing: 0.5,
             ),
           ),
         ],

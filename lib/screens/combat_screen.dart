@@ -410,7 +410,6 @@ class _CombatScreenState extends State<CombatScreen> {
                         itemCount: _droppedItems.length,
                         itemBuilder: (context, index) {
                           final item = _droppedItems[index];
-                          final slug = item['slug'];
 
                           Color rarityColor = Colors.grey;
                           if (item['rarity'] == 'uncommon')
@@ -450,7 +449,8 @@ class _CombatScreenState extends State<CombatScreen> {
                                       child: Padding(
                                         padding: const EdgeInsets.all(8.0),
                                         child: Image.asset(
-                                          AssetPaths.forFlutter('items/$slug.png'),
+                                          // 🆕 ИСПОЛЬЗУЕМ НАШУ УТИЛИТУ С image_path ИЗ АДМИНКИ
+                                          AssetPaths.forItem(item['image_path'], item['slug']),
                                           fit: BoxFit.contain,
                                           errorBuilder: (context, error,
                                               stackTrace) {
