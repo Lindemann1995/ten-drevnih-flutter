@@ -195,7 +195,7 @@ class _GuildBankScreenState extends State<GuildBankScreen> {
               final result = await ApiClient.depositToBank(itemSlug, amount);
               if (mounted) {
                 if (result['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ресурсы положены в банк!'), backgroundColor: Colors.green));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ресурсы положены в Хранилище гильдии!'), backgroundColor: Colors.green));
                   _loadBank();
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['error']), backgroundColor: Colors.red));
@@ -215,7 +215,7 @@ class _GuildBankScreenState extends State<GuildBankScreen> {
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: const Text('БАНК ГИЛЬДИИ', style: TextStyle(color: Color(0xFFD4AF37), letterSpacing: 2)),
+        title: const Text('Хранилище ГИЛЬДИИ', style: TextStyle(color: Color(0xFFD4AF37), letterSpacing: 2)),
         iconTheme: const IconThemeData(color: Color(0xFFD4AF37)),
       ),
       body: SafeArea(
@@ -261,7 +261,7 @@ class _GuildBankScreenState extends State<GuildBankScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(item['item_name'], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                                          Text('В банке: ${item['quantity']}', style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 14)),
+                                          Text('В Хранилище: ${item['quantity']}', style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 14)),
                                         ],
                                       ),
                                     ),

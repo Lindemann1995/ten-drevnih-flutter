@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'location_screen.dart';
-import 'profile_screen.dart';
-import 'trade_world_screen.dart';
-import 'scene_screen.dart';
-import 'hunt_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ ОХОТЫ
+import 'dart:async';
+import '../services/api_client.dart';
+import 'siege_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -12,90 +10,16 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen>
-    with SingleTickerProviderStateMixin {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+  List<dynamic> _castles = [];
+  bool _isLoading = true;
+  String? _error;
   late AnimationController _pulseController;
-
-  final List<MapLocation> _locations = [
-    MapLocation(
-      slug: 'world_ancient',
-      name: 'Мир Древних',
-      description: 'Руины храма, где ты очнулся. Здесь началось твоё путешествие.',
-      x: 0.22,
-      y: 0.18,
-      icon: Icons.auto_awesome,
-      isAvailable: true,
-      isStory: true,
-      recommendedLevel: '1+',
-    ),
-    MapLocation(
-      slug: 'kairos_village',
-      name: 'Деревня Кайроса',
-      description: 'Обиталище выживших. Здесь живёт старик Кайрос.',
-      x: 0.38,
-      y: 0.45,
-      icon: Icons.home,
-      isAvailable: false,
-      recommendedLevel: 'Сюжет',
-    ),
-    MapLocation(
-      slug: 'dark_forest',
-      name: 'Тёмный лес',
-      description: 'Мрачный лес, полный волков, пауков и медведей.',
-      x: 0.52,
-      y: 0.38,
-      icon: Icons.forest,
-      isAvailable: true,
-      isCombat: true, // <--- ВАЖНО: флаг боя
-      recommendedLevel: '2+',
-    ),
-    MapLocation(
-      slug: 'guild_city',
-      name: 'Город Гильдий',
-      description: 'Три гильдии, три пути. Орден Света, Культ Тени или Свободные.',
-      x: 0.75,
-      y: 0.30,
-      icon: Icons.castle,
-      isAvailable: false,
-      recommendedLevel: 'Сюжет',
-    ),
-    MapLocation(
-      slug: 'trade_world',
-      name: 'Мир Торговли',
-      description: 'Оживлённое место, где торговцы предлагают товары.',
-      x: 0.72,
-      y: 0.60,
-      icon: Icons.store,
-      isAvailable: true,
-      isTrade: true,
-      recommendedLevel: '1+',
-    ),
-    MapLocation(
-      slug: 'crypt',
-      name: 'Склеп Сердце Дракона',
-      description: 'Древнее подземелье. В его глубинах спит Сердце Дракона.',
-      x: 0.55,
-      y: 0.78,
-      icon: Icons.dark_mode,
-      isAvailable: false,
-      isCombat: true, // <--- Тоже боевая, когда откроется
-      recommendedLevel: 'Сюжет',
-    ),
-    MapLocation(
-      slug: 'dark_tower',
-      name: 'Тёмная Башня',
-      description: 'Обитель Тени Древних. Здесь решится судьба мира.',
-      x: 0.22,
-      y: 0.72,
-      icon: Icons.temple_buddhist,
-      isAvailable: false,
-      recommendedLevel: '50+',
-    ),
-  ];
 
   @override
   void initState() {
     super.initState();
+    _loadCastles();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -108,60 +32,184 @@ class _MapScreenState extends State<MapScreen>
     super.dispose();
   }
 
-  void _onLocationTap(MapLocation loc) {
+  Future<void> _loadCastles() async {
+    setState(() => _isLoading = true);
+    final result = await ApiClient.getCastles();
+    if (result['success']) {
+      setState(() {
+        _castles = result['data'];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _error = result['error'];
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onCastleTap(dynamic castle) {
+    final isFree = castle['owner'] == null;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _LocationSheet(
-        location: loc,
-        onEnter: () {
-          Navigator.pop(context);
-          _enterLocation(loc);
-        },
-      ),
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1A0A0A), Color(0xFF0A0A0A)],
+            ),
+            border: Border.all(
+              color: isFree ? Colors.white54 : const Color(0xFFD4AF37), 
+              width: 2
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              if (!isFree) BoxShadow(color: const Color(0xFFD4AF37).withValues(alpha: 0.2), blurRadius: 20, spreadRadius: 5)
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      castle['name'],
+                      style: TextStyle(
+                        color: isFree ? Colors.white : const Color(0xFFD4AF37),
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    Icon(
+                      isFree ? Icons.lock_open : Icons.lock,
+                      color: isFree ? Colors.white54 : const Color(0xFFD4AF37),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isFree ? 'Свободный замок' : 'Владелец: [${castle['owner']}]',
+                  style: TextStyle(
+                    color: isFree ? Colors.white54 : const Color(0xFFD4AF37),
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                
+                const Divider(color: Color(0xFF3A1A1A), height: 30),
+                
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A0A0A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF3A3A3A)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatChip(Icons.star, '+${castle['buff_xp_percent']}% XP', Colors.greenAccent),
+                      Container(width: 1, height: 30, color: Colors.white24),
+                      _buildStatChip(Icons.monetization_on, '+${castle['buff_gold_percent']}% Gold', Colors.amber),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                if (isFree)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8B0000),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 5,
+                        shadowColor: const Color(0xFF8B0000).withValues(alpha: 0.5),
+                      ),
+                      onPressed: () async {
+                        final siegeResult = await ApiClient.startSiege(castle['id']);
+                        if (!context.mounted) return;
+
+                        if (siegeResult['success']) {
+                          Navigator.pop(context);
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => SiegeScreen(
+                              siegeId: siegeResult['data']['siege_id'],
+                              castleName: castle['name'],
+                            ),
+                          ));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(siegeResult['error']), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.gavel, size: 24),
+                          SizedBox(width: 10),
+                          Text('АТАКОВАТЬ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  const Center(
+                    child: Text(
+                      'Объявить войну можно будет позже...',
+                      style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  void _enterLocation(MapLocation loc) {
-    // 1. Если это сюжетная стартовая локация
-    if (loc.slug == 'world_ancient') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const SceneScreen()),
-      );
-      return;
-    }
-    // 2. Если это торговый мир
-    if (loc.slug == 'trade_world') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TradeWorldScreen()),
-      );
-      return;
-    }
-    // 3. Если это боевая локация (включая Темный лес и Склеп)
-    if (loc.isCombat) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const HuntScreen(),
-        ),
-      );
-      return;
-    }
-    // 4. Для всех остальных (закрытых)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Локация "${loc.name}" — сюжетная, скоро откроется.'),
-        backgroundColor: const Color(0xFF8B0000),
-      ),
+  Widget _buildStatChip(IconData icon, String text, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0A0A0A),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A0A0A),
+        body: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
+      );
+    }
+
     return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0A),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -173,7 +221,6 @@ class _MapScreenState extends State<MapScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Заголовок
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -184,27 +231,17 @@ class _MapScreenState extends State<MapScreen>
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
-                      'КАРТА МИРА',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFD4AF37),
-                        letterSpacing: 3,
-                      ),
+                      'КАРТА ЗАМКОВ',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37), letterSpacing: 3),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.person, color: Color(0xFFD4AF37)),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                        );
-                      },
+                      icon: const Icon(Icons.refresh, color: Color(0xFFD4AF37)),
+                      onPressed: _loadCastles,
                     ),
                   ],
                 ),
               ),
-              // Карта
+              
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -216,311 +253,176 @@ class _MapScreenState extends State<MapScreen>
                             fit: BoxFit.cover,
                             errorBuilder: (_, e, s) => Container(
                               color: const Color(0xFF1A0A0A),
-                              child: const Center(
-                                child: Text(
-                                  'Карта не найдена',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white54),
-                                ),
-                              ),
+                              child: const Center(child: Text('Карта не найдена', style: TextStyle(color: Colors.white54))),
                             ),
                           ),
                         ),
                         Positioned.fill(
-                          child: Container(
-                            color: Colors.black.withValues(alpha: 0.35),
-                          ),
+                          child: Container(color: Colors.black.withValues(alpha: 0.4)),
                         ),
-                        ..._locations.map((loc) {
+                        
+                        ..._castles.map((castle) {
+                          final isFree = castle['owner'] == null;
+                          
                           return Positioned(
-                            left: constraints.maxWidth * loc.x - 40,
-                            top: constraints.maxHeight * loc.y - 40,
-                            child: _LocationMarker(
-                              location: loc,
-                              pulseController: _pulseController,
-                              onTap: () => _onLocationTap(loc),
+                            left: constraints.maxWidth * (castle['map_x'] ?? 0.5) - 35,
+                            top: constraints.maxHeight * (castle['map_y'] ?? 0.5) - 35,
+                            child: GestureDetector(
+                              onTap: () => _onCastleTap(castle),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AnimatedBuilder(
+                                    animation: _pulseController,
+                                    builder: (context, child) {
+                                      return Container(
+                                        width: 70,
+                                        height: 70,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: const Color(0xFF1A0A0A).withValues(alpha: 0.9),
+                                          border: Border.all(
+                                            color: isFree 
+                                                ? Colors.white54.withValues(alpha: 0.5 + _pulseController.value * 0.5)
+                                                : const Color(0xFFD4AF37),
+                                            width: 3,
+                                          ),
+                                          boxShadow: [
+                                            if (!isFree)
+                                              BoxShadow(
+                                                color: const Color(0xFFD4AF37).withValues(alpha: 0.6),
+                                                blurRadius: 15,
+                                                spreadRadius: 2 + _pulseController.value * 3,
+                                              )
+                                            else
+                                              BoxShadow(
+                                                color: Colors.white.withValues(alpha: 0.1 * _pulseController.value),
+                                                blurRadius: 10,
+                                              ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          Icons.castle,
+                                          color: isFree ? Colors.white54 : const Color(0xFFD4AF37),
+                                          size: 36,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  
+                                  if (castle['owner'] != null) ...[
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 6),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0A0A0A),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFD4AF37)),
+                                      ),
+                                      child: Text(
+                                        castle['owner'],
+                                        style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ] else if (castle['siege_cooldown_until'] != null) ...[
+                                    CastleCooldownTimer(cooldownUntil: castle['siege_cooldown_until']),
+                                  ],
+                                ],
+                              ),
                             ),
                           );
-                        }),
+                        }).toList(),
                       ],
                     );
                   },
                 ),
               ),
-              // Подсказка
-              const Padding(
-                padding: EdgeInsets.all(10),
-                child: Text(
-                  'Тапни по локации',
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class MapLocation {
-  final String slug;
-  final String name;
-  final String description;
-  final double x;
-  final double y;
-  final IconData icon;
-  final bool isAvailable;
-  final bool isStory;
-  final bool isCombat;
-  final bool isTrade;
-  final String recommendedLevel;
-
-  MapLocation({
-    required this.slug,
-    required this.name,
-    required this.description,
-    required this.x,
-    required this.y,
-    required this.icon,
-    required this.isAvailable,
-    required this.recommendedLevel,
-    this.isStory = false,
-    this.isCombat = false,
-    this.isTrade = false,
-  });
-}
-
-class _LocationMarker extends StatelessWidget {
-  final MapLocation location;
-  final AnimationController pulseController;
-  final VoidCallback onTap;
-
-  const _LocationMarker({
-    required this.location,
-    required this.pulseController,
-    required this.onTap,
-  });
-
-  Color get _color {
-    if (!location.isAvailable) return const Color(0xFF3A3A3A);
-    if (location.isStory) return const Color(0xFFD4AF37);
-    if (location.isCombat) return const Color(0xFF8B0000);
-    if (location.isTrade) return const Color(0xFF4A8B4A);
-    return const Color(0xFFD4AF37);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 80,
-        height: 80,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (location.isAvailable)
-              AnimatedBuilder(
-                animation: pulseController,
-                builder: (context, child) {
-                  return Container(
-                    width: 40 + pulseController.value * 40,
-                    height: 40 + pulseController.value * 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _color.withValues(
-                        alpha: 0.3 * (1 - pulseController.value),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF0A0A0A).withValues(alpha: 0.85),
-                border: Border.all(color: _color, width: 2),
-                boxShadow: location.isAvailable
-                    ? [
-                        BoxShadow(
-                          color: _color.withValues(alpha: 0.6),
-                          blurRadius: 15,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                    : [],
-              ),
-              child: Icon(
-                location.isAvailable ? location.icon : Icons.lock,
-                color: _color,
-                size: 26,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LocationSheet extends StatelessWidget {
-  final MapLocation location;
-  final VoidCallback onEnter;
-
-  const _LocationSheet({
-    required this.location,
-    required this.onEnter,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF1A0A0A), Color(0xFF0A0A0A)],
-        ),
-        border: Border.all(
-          color: location.isAvailable
-              ? const Color(0xFFD4AF37)
-              : const Color(0xFF3A3A3A),
-          width: 2,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.8),
-            blurRadius: 30,
-            spreadRadius: 5,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
+              
               Container(
-                width: 44,
-                height: 44,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF0A0A0A),
-                  border: Border.all(
-                    color: location.isAvailable
-                        ? const Color(0xFFD4AF37)
-                        : const Color(0xFF3A3A3A),
-                    width: 2,
+                  color: const Color(0xFF0A0A0A).withValues(alpha: 0.8),
+                  border: const Border(top: BorderSide(color: Color(0xFF3A1A1A))),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Нажми на замок, чтобы атаковать или посмотреть информацию', 
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                ),
-                child: Icon(
-                  location.isAvailable ? location.icon : Icons.lock,
-                  color: location.isAvailable
-                      ? const Color(0xFFD4AF37)
-                      : const Color(0xFF3A3A3A),
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      location.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFD4AF37),
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Рекомендуемый уровень: ${location.recommendedLevel}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            location.description,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-              height: 1.5,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          const SizedBox(height: 20),
-          if (location.isAvailable)
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: onEnter,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A0A0A),
-                  foregroundColor: const Color(0xFFD4AF37),
-                  side: const BorderSide(
-                    color: Color(0xFF8B0000),
-                    width: 2,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'ВОЙТИ',
-                  style: TextStyle(
-                    fontSize: 16,
-                    letterSpacing: 3,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0A0A0A),
-                border: Border.all(
-                  color: const Color(0xFF3A3A3A),
-                  width: 1,
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.lock, color: Color(0xFF3A3A3A), size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'ЗАКРЫТО',
-                    style: TextStyle(
-                      color: Color(0xFF3A3A3A),
-                      fontSize: 14,
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// ВИДЖЕТ ТАЙМЕРА КД (ДОБАВЛЕН В КОНЕЦ ФАЙЛА)
+// ==========================================
+class CastleCooldownTimer extends StatefulWidget {
+  final String cooldownUntil;
+
+  const CastleCooldownTimer({super.key, required this.cooldownUntil});
+
+  @override
+  State<CastleCooldownTimer> createState() => _CastleCooldownTimerState();
+}
+
+class _CastleCooldownTimerState extends State<CastleCooldownTimer> {
+  Timer? _timer;
+  Duration _remaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateRemaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) _updateRemaining();
+    });
+  }
+
+  void _updateRemaining() {
+    final cooldownUntil = DateTime.tryParse(widget.cooldownUntil)?.toLocal();
+    if (cooldownUntil == null) {
+      setState(() => _remaining = Duration.zero);
+      return;
+    }
+    final now = DateTime.now();
+    if (cooldownUntil.isAfter(now)) {
+      setState(() => _remaining = cooldownUntil.difference(now));
+    } else {
+      setState(() => _remaining = Duration.zero);
+      _timer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_remaining == Duration.zero) return const SizedBox.shrink();
+
+    final hours = _remaining.inHours;
+    final minutes = _remaining.inMinutes % 60;
+    final seconds = _remaining.inSeconds % 60;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '🛡 ${hours}ч ${minutes}м ${seconds}с',
+        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
       ),
     );
   }

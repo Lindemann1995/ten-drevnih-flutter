@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_client.dart';
-import 'map_screen.dart';
 import 'inventory_screen.dart';
 import 'profile_screen.dart';
 import 'chat_screen.dart';
-import 'news_screen.dart';
-import 'scene_screen.dart';
 import 'hunt_screen.dart';
 import 'stats_screen.dart';
 import 'craft_screen.dart';
 import 'trade_world_screen.dart';
-import 'world_map_screen.dart'; // 🆕 Импортируем наш новый экран локаций
+import 'world_map_screen.dart';
 import '../main.dart';
 import 'quest_list_screen.dart';
 import 'guild_screen.dart';
+import 'friends_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -23,16 +21,23 @@ class MainMenuScreen extends StatefulWidget {
   State<MainMenuScreen> createState() => _MainMenuScreenState();
 }
 
-class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
+class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, TickerProviderStateMixin {
   int _currentIndex = 0;
   Map<String, dynamic>? _profile;
   int _profileKey = 0;
+  
+  late AnimationController _navController;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _checkOfflineReward(); 
+    
+    _navController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       systemNavigationBarColor: Colors.transparent,
@@ -51,6 +56,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
   @override
   void dispose() {
     routeObserver.unsubscribe(this);
+    _navController.dispose();
     super.dispose();
   }
 
@@ -94,36 +100,33 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Ты отсутствовал ${data['hours']} ч.',
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
-            ),
+            Text('Ты отсутствовал ${data['hours']} ч.', style: const TextStyle(color: Colors.white70, fontSize: 16)),
             const SizedBox(height: 20),
             const Icon(Icons.monetization_on, color: Color(0xFFD4AF37), size: 60),
             const SizedBox(height: 10),
-            Text(
-              '+${data['gold_earned']} золота',
-              style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            Text('+${data['gold_earned']} золота', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 24, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
           Center(
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _loadProfile(); 
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: const Color(0xFF0A0A0A),
-              ),
+              onPressed: () { Navigator.pop(context); _loadProfile(); },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: const Color(0xFF0A0A0A)),
               child: const Text('ЗАБРАТЬ', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _onTabTapped(int index) {
+    if (_currentIndex == index) return;
+    setState(() {
+      _currentIndex = index;
+      if (index == 3) _profileKey++; 
+    });
+    _navController.forward(from: 0);
   }
 
   @override
@@ -145,62 +148,102 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware {
             _HomeTab(
               profile: _profile, 
               onRefresh: _loadProfile,
-              onNavigate: (index) {
-                setState(() {
-                  _currentIndex = index; 
-                  if (index == 3) _profileKey++; 
-                });
-              },
+              onNavigate: _onTabTapped,
             ),
-            const MapScreen(), // Пока оставляем старую карту для вкладки "МИР"
+            const WorldMapScreen(), 
             const ChatScreen(), 
             ProfileScreen(key: ValueKey(_profileKey)), 
           ],
         ),
         
-        bottomNavigationBar: Container(
+        bottomNavigationBar: _buildLuxuryNavBar(),
+      ),
+    );
+  }
+
+  Widget _buildLuxuryNavBar() {
+    return SafeArea(
+      bottom: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Container(
+          height: 70,
           decoration: BoxDecoration(
             color: const Color(0xFF0A0A0A).withOpacity(0.85),
-            border: const Border(top: BorderSide(color: Color(0xFFD4AF37), width: 1)),
+            borderRadius: BorderRadius.circular(35),
+            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 20, offset: const Offset(0, 10)),
+              BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.1), blurRadius: 20, spreadRadius: 2),
+            ],
           ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 65,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _NavItem(
-                    iconPath: 'assets/images/ui/icon_home.png',
-                    label: 'ДОМОЙ',
-                    isSelected: _currentIndex == 0,
-                    onTap: () => setState(() => _currentIndex = 0),
-                  ),
-                  _NavItem(
-                    iconPath: 'assets/images/ui/icon_map.png',
-                    label: 'МИР',
-                    isSelected: _currentIndex == 1,
-                    onTap: () => setState(() => _currentIndex = 1),
-                  ),
-                  _NavItem(
-                    iconPath: 'assets/images/ui/icon_chat.png', 
-                    label: 'ЧАТ',
-                    isSelected: _currentIndex == 2,
-                    onTap: () => setState(() => _currentIndex = 2),
-                  ),
-                  _NavItem(
-                    iconPath: 'assets/images/ui/icon_news.png', 
-                    label: 'ПРОФИЛЬ', 
-                    isSelected: _currentIndex == 3,
-                    onTap: () => setState(() {
-                      _currentIndex = 3;
-                      _profileKey++; 
-                    }),
-                  ),
-                ],
-              ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(35),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavItem(0, 'assets/images/ui/icon_home.png', 'ДОМОЙ', Icons.home),
+                _buildNavItem(1, 'assets/images/ui/icon_map.png', 'МИР', Icons.map),
+                _buildNavItem(2, 'assets/images/ui/icon_chat.png', 'ЧАТ', Icons.chat_bubble),
+                _buildNavItem(3, 'assets/images/ui/icon_news.png', 'ПРОФИЛЬ', Icons.person),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, String iconPath, String label, IconData fallbackIcon) {
+    final isSelected = _currentIndex == index;
+    
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(horizontal: isSelected ? 20 : 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(25),
+          border: isSelected ? Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)) : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: isSelected ? [
+                  BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.5), blurRadius: 15, spreadRadius: 2)
+                ] : [],
+              ),
+              child: Image.asset(
+                iconPath,
+                width: 26, height: 26,
+                opacity: AlwaysStoppedAnimation(isSelected ? 1.0 : 0.5),
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  fallbackIcon,
+                  color: isSelected ? const Color(0xFFD4AF37) : Colors.white54,
+                  size: 26,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 300),
+              style: TextStyle(
+                fontSize: isSelected ? 10 : 9,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? const Color(0xFFD4AF37) : Colors.white54,
+                letterSpacing: isSelected ? 1.0 : 0.0,
+              ),
+              child: Text(label),
+            ),
+          ],
         ),
       ),
     );
@@ -235,48 +278,113 @@ class _HomeTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- ШАПКА ПРОФИЛЯ ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // --- 🆕 ЭПИЧНАЯ ШАПКА ПРОФИЛЯ ---
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          username,
-                          style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 22, fontWeight: FontWeight.bold),
+                        // Аватар с золотым свечением
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFD4AF37).withOpacity(0.4),
+                                blurRadius: 15,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 28,
+                            backgroundColor: const Color(0xFF1A0A0A),
+                            child: const Icon(Icons.person, color: Color(0xFFD4AF37), size: 32),
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$className (Ур. $level)',
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        const SizedBox(height: 8),
+                        const SizedBox(width: 16),
                         
-                        // КРАСИВАЯ ПОЛОСКА ОПЫТА
-                        _buildExpBar(
-                          profile?['experience'] ?? 0, 
-                          profile?['experience_to_next'] ?? 100
+                        // Ник и класс
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                username.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Color(0xFFD4AF37), 
+                                  fontSize: 20, 
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFD4AF37).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+                                    ),
+                                    child: Text(
+                                      'УР. $level',
+                                      style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    className,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontStyle: FontStyle.italic),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Кнопки действий
+                        Row(
+                          children: [
+                            _buildTopIcon(Icons.stars, 'События', () => _showComingSoon(context, 'События')),
+                            const SizedBox(width: 8),
+                            _buildTopIcon(Icons.people_alt, 'Друзья', () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen()));
+                            }),
+                            const SizedBox(width: 8),
+                            _buildTopIcon(Icons.settings, 'Настройки', () => _showComingSoon(context, 'Настройки')),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                  Row(
-                    children: [
-                      _buildTopIcon('🎉', 'События', () => _showComingSoon(context, 'События')),
-                      const SizedBox(width: 8),
-                      _buildTopIcon('👥', 'Друзья', () => _showComingSoon(context, 'Друзья')),
-                      const SizedBox(width: 8),
-                      _buildTopIcon('⚙️', 'Настройки', () => _showComingSoon(context, 'Настройки')),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    
+                    // Полоска опыта
+                    _buildExpBar(
+                      profile?['experience'] ?? 0, 
+                      profile?['experience_to_next'] ?? 100
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 25),
 
-              // --- ВАШИ ПРИКЛЮЧЕНИЯ ---
+              // --- ВАШИ ПРИКЛЮЧЕНИЯ (Компактные, с иконками) ---
               const Text(
                 'ВАШИ ПРИКЛЮЧЕНИЯ',
                 style: TextStyle(color: Color(0xFFD4AF37), fontSize: 14, letterSpacing: 2, fontWeight: FontWeight.bold),
@@ -289,26 +397,22 @@ class _HomeTab extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(), 
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 1.0, 
+                childAspectRatio: 1.7, 
                 children: [
-                  _buildGridButton('📜', 'ЗАДАНИЯ', () {
+                  _buildGridButton(Icons.assignment, 'ЗАДАНИЯ', Colors.amber, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const QuestListScreen()));
                   }),
-                  _buildGridButton('🎭', 'ПРОФИЛЬ', () {
+                  _buildGridButton(Icons.person, 'ПРОФИЛЬ', Colors.blueAccent, () {
                     onNavigate(3); 
                   }),
-                  _buildGridButton('🏰', 'ГИЛЬДИИ', () {
-                    Navigator.push(
-       
-                      context,
-                      MaterialPageRoute(builder: (_) => const GuildScreen()),
-                    );
+                  _buildGridButton(Icons.shield, 'ГИЛЬДИИ', Colors.orangeAccent, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const GuildScreen()));
                   }),
-                  _buildGridButton('🕸️', 'ПОДЗЕМЕЛЬЯ', () => _showComingSoon(context, 'Подземелья')),
-                  _buildGridButton('🎒', 'СНАРЯЖЕНИЕ', () {
+                  _buildGridButton(Icons.castle, 'ПОДЗЕМЕЛЬЯ', Colors.purpleAccent, () => _showComingSoon(context, 'Подземелья')),
+                  _buildGridButton(Icons.backpack, 'СНАРЯЖЕНИЕ', Colors.greenAccent, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen()));
                   }),
-                  _buildGridButton('📊', 'СТАТЫ ИГРОКА', () {
+                  _buildGridButton(Icons.bar_chart, 'СТАТЫ', Colors.redAccent, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen()));
                   }),
                 ],
@@ -322,45 +426,28 @@ class _HomeTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               
-              // 🆕 ОБНОВЛЕННЫЙ БЛОК БЫСТРЫХ ДЕЙСТВИЙ (Сеткой 4 в ряд)
               GridView.count(
                 crossAxisCount: 4,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 0.8,
+                childAspectRatio: 0.85,
                 children: [
-                  // ОХОТА
-                  _buildQuickAction('🐺', 'ОХОТА', () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HuntScreen()),
-                    );
+                  _buildQuickAction(Icons.pets, 'ОХОТА', Colors.orangeAccent, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HuntScreen()));
                   }),
-                  // ЛОКАЦИИ (новая вкладка)
-                  _buildQuickAction('🗺️', 'ЛОКАЦИИ', () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorldMapScreen()),
-                    );
+                  _buildQuickAction(Icons.explore, 'ЛОКАЦИИ', Colors.lightBlueAccent, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const WorldMapScreen()));
                   }),
-                  // ТОРГОВЛЯ
-                  _buildQuickAction('🛒', 'ТОРГОВЛЯ', () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TradeWorldScreen()),
-                    );
+                  _buildQuickAction(Icons.storefront, 'ТОРГОВЛЯ', Colors.greenAccent, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TradeWorldScreen()));
                   }),
-                  // КУЗНИЦА (КРАФТ)
-                  _buildQuickAction('⚒️', 'КУЗНИЦА', () {
+                  _buildQuickAction(Icons.handyman, 'КУЗНИЦА', Colors.amberAccent, () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const CraftScreen(
-                          npcSlug: 'koval',
-                          npcName: 'Коваль',
-                        ),
+                        builder: (_) => const CraftScreen(npcSlug: 'koval', npcName: 'Коваль'),
                       ),
                     );
                   }),
@@ -381,51 +468,49 @@ class _HomeTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('ОПЫТ', style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.bold)),
+            Text('$currentExp / $maxExp', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 6),
         Container(
-          height: 16,
-          width: 200,
+          height: 14,
           decoration: BoxDecoration(
             color: const Color(0xFF0A0A0A), 
-            border: Border.all(color: const Color(0xFFD4AF37), width: 1.5), 
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFD4AF37).withOpacity(0.2),
-                blurRadius: 4,
-                spreadRadius: 1,
-              ),
-            ],
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3), width: 1),
           ),
           child: Stack(
             children: [
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0.0, end: percent),
-                duration: const Duration(milliseconds: 800),
+                duration: const Duration(milliseconds: 1000),
                 curve: Curves.easeOutCubic,
                 builder: (context, value, child) {
                   return FractionallySizedBox(
                     widthFactor: value,
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
-                        ),
-                        borderRadius: BorderRadius.circular(6),
+                        gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFFFACD)]),
+                        borderRadius: BorderRadius.circular(7),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.5), blurRadius: 8)
+                        ],
                       ),
                     ),
                   );
                 },
               ),
-              Positioned.fill(
-                child: Center(
-                  child: Text(
-                    '$currentExp / $maxExp',
-                    style: const TextStyle(
-                      color: Colors.white, 
-                      fontSize: 10, 
-                      fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 2)],
-                    ),
+              // Блик сверху
+              Positioned(
+                top: 2, left: 4, right: 4, height: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
@@ -435,7 +520,7 @@ class _HomeTab extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'До ур. осталось: $remaining',
-          style: const TextStyle(color: Colors.white54, fontSize: 10, fontStyle: FontStyle.italic),
+          style: const TextStyle(color: Colors.white54, fontSize: 9, fontStyle: FontStyle.italic),
         ),
       ],
     );
@@ -456,28 +541,15 @@ class _HomeTab extends StatelessWidget {
           children: [
             const Icon(Icons.construction, color: Color(0xFFD4AF37), size: 60),
             const SizedBox(height: 20),
-            Text(
-              '$featureName скоро появятся!',
-              style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
+            Text('$featureName скоро появятся!', style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
             const SizedBox(height: 10),
-            const Text(
-              'Мы уже работаем над этим. Следи за обновлениями в новостях!',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
+            const Text('Мы уже работаем над этим. Следи за обновлениями в новостях!', style: TextStyle(color: Colors.white54, fontSize: 14), textAlign: TextAlign.center),
             const SizedBox(height: 30),
             SizedBox(
-              width: double.infinity,
-              height: 50,
+              width: double.infinity, height: 50,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: const Color(0xFF0A0A0A),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: const Color(0xFF0A0A0A), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                 child: const Text('ПОНЯТНО', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
@@ -487,135 +559,84 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildTopIcon(String icon, String tooltip, VoidCallback onTap) {
+  Widget _buildTopIcon(IconData icon, String tooltip, VoidCallback onTap) {
     return Tooltip(
       message: tooltip,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0A).withOpacity(0.7),
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFD4AF37), width: 1),
+            color: const Color(0xFF1A0A0A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4, offset: const Offset(0, 2)),
+            ],
           ),
-          child: Text(icon, style: const TextStyle(fontSize: 20)),
+          child: Icon(icon, color: const Color(0xFFD4AF37), size: 20),
         ),
       ),
     );
   }
 
-  Widget _buildQuickAction(String icon, String label, VoidCallback onTap) {
+  Widget _buildQuickAction(IconData icon, String label, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 60,
-            height: 60, 
+            width: 60, height: 60, 
             decoration: BoxDecoration(
               color: const Color(0xFF1A0A0A).withOpacity(0.8),
-              border: Border.all(color: const Color(0xFFD4AF37), width: 1), 
-              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withOpacity(0.5), width: 1.5), 
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
+                BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, spreadRadius: 1)
               ],
             ),
-            child: Center(
-              child: Text(icon, style: const TextStyle(fontSize: 28)),
-            ),
+            child: Center(child: Icon(icon, color: color, size: 30)),
           ),
           const SizedBox(height: 6),
           Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            label, 
+            textAlign: TextAlign.center, 
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGridButton(String icon, String label, VoidCallback onTap) {
+  Widget _buildGridButton(IconData icon, String label, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A0A0A).withOpacity(0.8),
-          border: Border.all(color: const Color(0xFF3A1A1A), width: 1),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color.withOpacity(0.15), const Color(0xFF1A0A0A)],
+          ),
+          border: Border.all(color: color.withOpacity(0.3), width: 1),
           borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(icon, style: const TextStyle(fontSize: 28)),
-            const SizedBox(height: 8),
+            Icon(icon, color: color, size: 26),
+            const SizedBox(height: 4),
             Text(
               label, 
               textAlign: TextAlign.center, 
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)
+              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5)
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final String iconPath;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.iconPath,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset(
-            iconPath,
-            width: 32,
-            height: 32,
-            opacity: AlwaysStoppedAnimation(isSelected ? 1.0 : 0.4),
-            errorBuilder: (context, error, stackTrace) => Icon(
-              label == 'ДОМОЙ' ? Icons.home : 
-              label == 'МИР' ? Icons.map : 
-              label == 'ЧАТ' ? Icons.chat : Icons.person,
-              color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF4A3A3A),
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF4A3A3A),
-            ),
-          ),
-        ],
       ),
     );
   }

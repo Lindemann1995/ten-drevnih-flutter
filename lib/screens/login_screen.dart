@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import 'register_screen.dart';
-import 'map_screen.dart';
+import 'main_menu_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (hasClass) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const MapScreen()),
+            MaterialPageRoute(builder: (_) => const MainMenuScreen()),
           );
         } else {
           Navigator.pushReplacement(

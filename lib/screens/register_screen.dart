@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import 'login_screen.dart';
+import 'class_selection_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -72,10 +73,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (result['success'] == true) {
       _showSuccess('Регистрация успешна!');
-      // Показываем сообщение про email и переходим в меню
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ClassSelectionScreen()),
+      );
     } else {
       _showError(result['error'] ?? 'Ошибка регистрации');
     }

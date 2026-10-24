@@ -3,6 +3,7 @@
 /// Проблема: Flame's images.load() сам добавляет префикс assets/images/,
 /// а Flutter's AssetImage — требует полный путь. Дублирование путей
 /// приводит к ошибке "assets/images/assets/images/...".
+
 class AssetPaths {
   static const String _prefix = 'assets/images/';
 

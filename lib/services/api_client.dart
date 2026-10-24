@@ -616,4 +616,207 @@ class ApiClient {
     );
     return _handleResponse(response);
   }
+
+    // Получить список замков
+  static Future<Map<String, dynamic>> getCastles() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/castles/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Начать осаду замка
+  static Future<Map<String, dynamic>> startSiege(int castleId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/siege/start/'),
+      headers: _headers,
+      body: jsonEncode({'castle_id': castleId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Действие в осаде (attack, defend, flee)
+  static Future<Map<String, dynamic>> siegeAction(int siegeId, String action) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/siege/action/'),
+      headers: _headers,
+      body: jsonEncode({'siege_id': siegeId, 'action': action}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Собрать налоги с замков
+  static Future<Map<String, dynamic>> collectTaxes() async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/castles/collect-taxes/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить настройки UI гильдии
+  static Future<Map<String, dynamic>> getGuildUISettings() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/ui-settings/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // Вызвать на дуэль
+  static Future<Map<String, dynamic>> challengeDuel(String username) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/duels/challenge/'),
+      headers: _headers,
+      body: jsonEncode({'username': username}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Принять дуэль
+  static Future<Map<String, dynamic>> acceptDuel(int duelId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/duels/accept/'),
+      headers: _headers,
+      body: jsonEncode({'duel_id': duelId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Отклонить дуэль
+  static Future<Map<String, dynamic>> declineDuel(int duelId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/duels/decline/'),
+      headers: _headers,
+      body: jsonEncode({'duel_id': duelId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Действие в дуэли (attack)
+  static Future<Map<String, dynamic>> duelAction(int duelId, String action) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/duels/action/'),
+      headers: _headers,
+      body: jsonEncode({'duel_id': duelId, 'action': action}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Получить активные дуэли
+  static Future<Map<String, dynamic>> getActiveDuels() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/duels/active/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // Получить статус конкретной дуэли
+  static Future<Map<String, dynamic>> getDuelStatus(int duelId) async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/duels/$duelId/status/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // ===== ЕЖЕДНЕВНЫЕ ЗАДАНИЯ ГИЛЬДИИ =====
+  static Future<Map<String, dynamic>> getGuildDailyQuests() async {
+    final response = await http.get(
+      Uri.parse('$_guildUrl/daily-quests/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> claimDailyQuest(int questId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/daily-quests/$questId/claim/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // ===== ДРУЗЬЯ И ЛС =====
+  static const String _socialUrl = 'https://dev.api.code-nest.ru/api/social';
+
+  // Получить список друзей и заявок
+  static Future<Map<String, dynamic>> getFriends() async {
+    final response = await http.get(
+      Uri.parse('$_socialUrl/friends/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+  // Отправить заявку в друзья
+  static Future<Map<String, dynamic>> sendFriendRequest(String username) async {
+    final response = await http.post(
+      Uri.parse('$_socialUrl/friends/request/'),
+      headers: _headers,
+      body: jsonEncode({'username': username}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Принять заявку
+  static Future<Map<String, dynamic>> acceptFriendRequest(int requestId) async {
+    final response = await http.post(
+      Uri.parse('$_socialUrl/friends/accept/'),
+      headers: _headers,
+      body: jsonEncode({'request_id': requestId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Отклонить заявку
+  static Future<Map<String, dynamic>> declineFriendRequest(int requestId) async {
+    final response = await http.post(
+      Uri.parse('$_socialUrl/friends/decline/'),
+      headers: _headers,
+      body: jsonEncode({'request_id': requestId}),
+    );
+    return _handleResponse(response);
+  }
+
+  // История личных сообщений
+  static Future<Map<String, dynamic>> getPrivateMessages(String username) async {
+    final response = await http.get(
+      Uri.parse('$_socialUrl/messages/$username/'),
+      headers: _headers,
+    );
+    return _handleResponse(response);
+  }
+
+    // Удалить из друзей
+  static Future<Map<String, dynamic>> removeFriend(int friendshipId) async {
+    final response = await http.post(
+      Uri.parse('$_socialUrl/friends/remove/'),
+      headers: _headers,
+      body: jsonEncode({'friendship_id': friendshipId}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Назначить ранг участнику
+  static Future<Map<String, dynamic>> promoteMember(int playerId, String rank) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/promote/'),
+      headers: _headers,
+      body: jsonEncode({'player_id': playerId, 'rank': rank}),
+    );
+    return _handleResponse(response);
+  }
+
+    // Исключить игрока из гильдии
+  static Future<Map<String, dynamic>> kickMember(int playerId) async {
+    final response = await http.post(
+      Uri.parse('$_guildUrl/kick/'),
+      headers: _headers,
+      body: jsonEncode({'player_id': playerId}),
+    );
+    return _handleResponse(response);
+  }
 }

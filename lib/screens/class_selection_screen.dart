@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
-import 'map_screen.dart';
+import 'main_menu_screen.dart';
 
 class ClassSelectionScreen extends StatefulWidget {
   const ClassSelectionScreen({super.key});
@@ -66,7 +66,7 @@ class _ClassSelectionScreenState extends State<ClassSelectionScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MapScreen()),
+        MaterialPageRoute(builder: (_) => const MainMenuScreen()),
       );
     } else {
       _showMessage(result['error'] ?? 'Ошибка');
