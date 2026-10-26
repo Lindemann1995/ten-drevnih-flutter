@@ -3,6 +3,7 @@ import 'package:flame/game.dart';
 import '../services/api_client.dart';
 import 'battle_game.dart';
 import '../utils/asset_paths.dart';
+import 'dart:math' as math; // Для анимации частиц
 
 class CombatScreen extends StatefulWidget {
   final String enemySlug;
@@ -18,7 +19,7 @@ class CombatScreen extends StatefulWidget {
   State<CombatScreen> createState() => _CombatScreenState();
 }
 
-class _CombatScreenState extends State<CombatScreen> {
+class _CombatScreenState extends State<CombatScreen> with TickerProviderStateMixin {
   bool _isLoading = true;
   bool _isActing = false;
   String? _error;
@@ -116,10 +117,10 @@ class _CombatScreenState extends State<CombatScreen> {
         _game = BattleGame(
           playerClass: className,
           enemySlug: widget.enemySlug,
-          // Очистка пути теперь внутри BattleGame через AssetPaths
           enemyImagePath: data['enemy_image'] ?? '',
           bgImagePath: data['enemy_bg'] ?? '',
           shouldFlip: data['enemy_flip'] ?? false,
+          enemyScale: (data['enemy_scale'] as num?)?.toDouble() ?? 1.0,
         );
       }
     } else {
@@ -197,10 +198,8 @@ class _CombatScreenState extends State<CombatScreen> {
     setState(() => _isActing = true);
 
     if (action == 'attack') {
-      // Проверка: _game инициализирована (защита от race condition)
       if (_game != null) {
         _game.heroAttack();
-
         await Future.delayed(const Duration(milliseconds: 300));
         _game.enemyHit();
       }
@@ -327,7 +326,7 @@ class _CombatScreenState extends State<CombatScreen> {
         context: context,
         barrierDismissible: false,
         barrierColor: Colors.black87,
-        transitionDuration: const Duration(milliseconds: 300),
+        transitionDuration: const Duration(milliseconds: 500),
         pageBuilder: (context, anim1, anim2) {
           return _buildVictoryOverlay();
         },
@@ -341,181 +340,229 @@ class _CombatScreenState extends State<CombatScreen> {
     }
   }
 
+  // 🆕 ВАУ-ОФОРМЛЕНИЕ ЭКРАНА ПОБЕДЫ
   Widget _buildVictoryOverlay() {
     return Center(
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 320,
+          width: 340,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A0A0A).withOpacity(0.95),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1A0A0A), Color(0xFF0A0000)],
+            ),
             border: Border.all(color: const Color(0xFFD4AF37), width: 2),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFD4AF37).withOpacity(0.3),
-                blurRadius: 20,
+                color: const Color(0xFFD4AF37).withOpacity(0.4),
+                blurRadius: 30,
                 spreadRadius: 5,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.8),
+                blurRadius: 15,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              const Text(
-                '🏆 ПОБЕДА!',
-                style: TextStyle(
-                  color: Color(0xFFD4AF37),
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
+              // Фоновые искры (Анимация)
+              Positioned.fill(
+                child: _SparklesAnimation(),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Ты победил ${_enemy?['name'] ?? 'врага'}',
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Награда:',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 120,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: _droppedItems.isEmpty
-                    ? const Center(
-                        child: Text('Добычи нет',
-                            style: TextStyle(
-                                color: Colors.white38,
-                                fontStyle: FontStyle.italic)),
-                      )
-                    : GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: _droppedItems.length,
-                        itemBuilder: (context, index) {
-                          final item = _droppedItems[index];
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Титул победы с градиентом
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Color(0xFFFFFACD), Color(0xFFD4AF37), Color(0xFFFFFACD)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(bounds),
+                    child: const Text(
+                      '🏆 ПОБЕДА!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ты победил ${_enemy?['name'] ?? 'врага'}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Блок наград (Опыт и Золото)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildRewardChip(Icons.star, '+$_rewardExp XP', Colors.greenAccent),
+                      _buildRewardChip(Icons.monetization_on, '+$_rewardGold Gold', const Color(0xFFD4AF37)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
 
-                          Color rarityColor = Colors.grey;
-                          if (item['rarity'] == 'uncommon')
-                            rarityColor = const Color(0xFF4A8B4A);
-                          if (item['rarity'] == 'rare')
-                            rarityColor = const Color(0xFF3A5A8B);
-                          if (item['rarity'] == 'epic')
-                            rarityColor = const Color(0xFF8B3A8B);
-                          if (item['rarity'] == 'legendary')
-                            rarityColor = const Color(0xFFD4AF37);
+                  const Text(
+                    'ДОБЫЧА:',
+                    style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Сетка лута
+                  Container(
+                    height: 130,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+                    ),
+                    child: _droppedItems.isEmpty
+                        ? const Center(
+                            child: Text('Добычи нет',
+                                style: TextStyle(
+                                    color: Colors.white38,
+                                    fontStyle: FontStyle.italic)),
+                          )
+                        : GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                            ),
+                            itemCount: _droppedItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _droppedItems[index];
+                              Color rarityColor = Colors.grey;
+                              if (item['rarity'] == 'uncommon') rarityColor = const Color(0xFF4A8B4A);
+                              if (item['rarity'] == 'rare') rarityColor = const Color(0xFF3A5A8B);
+                              if (item['rarity'] == 'epic') rarityColor = const Color(0xFF8B3A8B);
+                              if (item['rarity'] == 'legendary') rarityColor = const Color(0xFFD4AF37);
 
-                          return TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            duration: Duration(milliseconds: 400 + (index * 100)),
-                            curve: Curves.easeOutBack,
-                            builder: (context, value, child) {
-                              return Transform.scale(
-                                scale: value,
-                                child: Opacity(
-                                  opacity: value.clamp(0.0, 1.0),
-                                  child: child,
+                              return TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.0, end: 1.0),
+                                duration: Duration(milliseconds: 400 + (index * 150)),
+                                curve: Curves.easeOutBack,
+                                builder: (context, value, child) {
+                                  return Transform.scale(
+                                    scale: value,
+                                    child: Opacity(
+                                      opacity: value.clamp(0.0, 1.0),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: GestureDetector(
+                                  onLongPress: () => _showItemDetails(item),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [const Color(0xFF2A1A1A), rarityColor.withOpacity(0.2)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: rarityColor.withOpacity(0.8), width: 1.5),
+                                      boxShadow: [
+                                        BoxShadow(color: rarityColor.withOpacity(0.3), blurRadius: 8, spreadRadius: 1),
+                                      ],
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Image.asset(
+                                              AssetPaths.forItem(item['image_path'], item['slug']),
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Icon(Icons.inventory_2, color: rarityColor, size: 30);
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          right: 4,
+                                          bottom: 2,
+                                          child: Text(
+                                            'x${item['quantity']}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               );
                             },
-                            child: GestureDetector(
-                              onLongPress: () => _showItemDetails(item),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2A1A1A),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: rarityColor.withOpacity(0.7)),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: Image.asset(
-                                          // 🆕 ИСПОЛЬЗУЕМ НАШУ УТИЛИТУ С image_path ИЗ АДМИНКИ
-                                          AssetPaths.forItem(item['image_path'], item['slug']),
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (context, error,
-                                              stackTrace) {
-                                            return Icon(Icons.inventory_2,
-                                                color: rarityColor, size: 30);
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: 4,
-                                      bottom: 2,
-                                      child: Text(
-                                        'x${item['quantity']}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          shadows: [
-                                            Shadow(
-                                                color: Colors.black,
-                                                blurRadius: 2)
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                          ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Кнопка забрать
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD4AF37),
+                        foregroundColor: const Color(0xFF1A0A0A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 10,
+                        shadowColor: const Color(0xFFD4AF37).withOpacity(0.8),
                       ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Золото: $_rewardGold  |  Опыт: $_rewardExp',
-                style:
-                    const TextStyle(color: Color(0xFFD4AF37), fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFD4AF37),
-                    foregroundColor: const Color(0xFF1A0A0A),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                      child: const Text(
+                        'ЗАБРАТЬ НАГРАДУ',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 2),
+                      ),
+                    ),
                   ),
-                  child: const Text(
-                    'ЗАБРАТЬ НАГРАДУ',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
+                ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRewardChip(IconData icon, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 6),
+          Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+        ],
       ),
     );
   }
@@ -544,10 +591,7 @@ class _CombatScreenState extends State<CombatScreen> {
             children: [
               Text(
                 item['name'] ?? 'Неизвестный предмет',
-                style: TextStyle(
-                    color: rarityColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold),
+                style: TextStyle(color: rarityColor, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -555,38 +599,22 @@ class _CombatScreenState extends State<CombatScreen> {
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
               const Divider(color: Color(0xFF3A1A1A), height: 24),
-              const Text('Характеристики:',
-                  style: TextStyle(
-                      color: Colors.white70, fontWeight: FontWeight.bold)),
+              const Text('Характеристики:', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               if ((item['bonus_strength'] ?? 0) > 0)
-                Text('+${item['bonus_strength']} Сила',
-                    style: const TextStyle(
-                        color: Color(0xFF6BBF6B), fontSize: 14)),
+                Text('+${item['bonus_strength']} Сила', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
               if ((item['bonus_agility'] ?? 0) > 0)
-                Text('+${item['bonus_agility']} Ловкость',
-                    style: const TextStyle(
-                        color: Color(0xFF6BBF6B), fontSize: 14)),
+                Text('+${item['bonus_agility']} Ловкость', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
               if ((item['bonus_intelligence'] ?? 0) > 0)
-                Text('+${item['bonus_intelligence']} Интеллект',
-                    style: const TextStyle(
-                        color: Color(0xFF6BBF6B), fontSize: 14)),
+                Text('+${item['bonus_intelligence']} Интеллект', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
               if ((item['bonus_endurance'] ?? 0) > 0)
-                Text('+${item['bonus_endurance']} Выносливость',
-                    style: const TextStyle(
-                        color: Color(0xFF6BBF6B), fontSize: 14)),
+                Text('+${item['bonus_endurance']} Выносливость', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
               if ((item['bonus_health'] ?? 0) > 0)
-                Text('+${item['bonus_health']} HP',
-                    style: const TextStyle(
-                        color: Color(0xFF6BBF6B), fontSize: 14)),
+                Text('+${item['bonus_health']} HP', style: const TextStyle(color: Color(0xFF6BBF6B), fontSize: 14)),
               if ((item['bonus_strength'] ?? 0) == 0 &&
                   (item['bonus_agility'] ?? 0) == 0 &&
                   (item['bonus_health'] ?? 0) == 0)
-                const Text('Нет бонусов к характеристикам',
-                    style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic)),
+                const Text('Нет бонусов к характеристикам', style: TextStyle(color: Colors.white38, fontSize: 12, fontStyle: FontStyle.italic)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -620,61 +648,30 @@ class _CombatScreenState extends State<CombatScreen> {
             border: Border.all(color: const Color(0xFF5A0A0A), width: 2),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8B0000).withOpacity(0.4),
-                blurRadius: 30,
-                spreadRadius: 10,
-              ),
+              BoxShadow(color: const Color(0xFF8B0000).withOpacity(0.4), blurRadius: 30, spreadRadius: 10),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.heart_broken,
-                color: Color(0xFF8B0000),
-                size: 64,
-              ),
+              const Icon(Icons.heart_broken, color: Color(0xFF8B0000), size: 64),
               const SizedBox(height: 16),
-              const Text(
-                'ПОРАЖЕНИЕ',
-                style: TextStyle(
-                  color: Color(0xFF8B0000),
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 3,
-                ),
-              ),
+              const Text('ПОРАЖЕНИЕ', style: TextStyle(color: Color(0xFF8B0000), fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 3)),
               const SizedBox(height: 16),
-              Text(
-                'Ты пал в бою с ${_enemy?['name'] ?? 'врагом'}...',
-                style: const TextStyle(color: Colors.white54, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
+              Text('Ты пал в бою с ${_enemy?['name'] ?? 'врагом'}...', style: const TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pop(context);
-                  },
+                  onPressed: () { Navigator.pop(context); Navigator.pop(context); },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2A0A0A),
                     foregroundColor: const Color(0xFF8B0000),
-                    side: const BorderSide(
-                        color: Color(0xFF8B0000), width: 2),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                    side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text(
-                    'ПРИНЯТЬ СУДЬБУ',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1),
-                  ),
+                  child: const Text('ПРИНЯТЬ СУДЬБУ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 ),
               ),
             ],
@@ -686,8 +683,7 @@ class _CombatScreenState extends State<CombatScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(message), backgroundColor: const Color(0xFF8B0000)),
+      SnackBar(content: Text(message), backgroundColor: const Color(0xFF8B0000)),
     );
   }
 
@@ -704,9 +700,7 @@ class _CombatScreenState extends State<CombatScreen> {
         ),
         child: SafeArea(
           child: _isLoading
-              ? const Center(
-                  child:
-                      CircularProgressIndicator(color: Color(0xFFD4AF37)))
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
               : _error != null
                   ? _buildError()
                   : _buildCombat(),
@@ -724,16 +718,11 @@ class _CombatScreenState extends State<CombatScreen> {
           children: [
             const Icon(Icons.error, color: Color(0xFF8B0000), size: 60),
             const SizedBox(height: 20),
-            Text(_error!,
-                style:
-                    const TextStyle(color: Colors.white70, fontSize: 16)),
+            Text(_error!, style: const TextStyle(color: Colors.white70, fontSize: 16)),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A0A0A),
-                foregroundColor: const Color(0xFFD4AF37),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A0A0A), foregroundColor: const Color(0xFFD4AF37)),
               child: const Text('НАЗАД'),
             ),
           ],
@@ -748,7 +737,6 @@ class _CombatScreenState extends State<CombatScreen> {
     final enemyHp = _enemy?['hp'] ?? 0;
     final enemyMaxHp = _enemy?['max_hp'] ?? 100;
 
-    // Фон арены: полный путь для AssetImage, errorBuilder на случай отсутствия
     String bgPath = AssetPaths.forFlutter('ui/battle_bg.png');
     if (_enemy?['bg'] != null && _enemy!['bg'].toString().isNotEmpty) {
       bgPath = AssetPaths.forFlutter(_enemy!['bg']);
@@ -762,11 +750,7 @@ class _CombatScreenState extends State<CombatScreen> {
             children: [
               Text(
                 '⚔️ ${_enemy?['name'] ?? 'Враг'}',
-                style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFD4AF37),
-                    letterSpacing: 2),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37), letterSpacing: 2),
               ),
               const SizedBox(height: 12),
               _buildHpBar(enemyHp, enemyMaxHp, const Color(0xFF8B0000)),
@@ -777,32 +761,21 @@ class _CombatScreenState extends State<CombatScreen> {
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              border:
-                  Border.all(color: const Color(0xFFD4AF37), width: 2),
+              border: Border.all(color: const Color(0xFFD4AF37), width: 2),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                    color: const Color(0xFFD4AF37).withOpacity(0.2),
-                    blurRadius: 10,
-                    spreadRadius: 2)
-              ],
+              boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.2), blurRadius: 10, spreadRadius: 2)],
               image: DecorationImage(
                 image: AssetImage(bgPath),
                 fit: BoxFit.cover,
-                // Если фон не загрузился — не крашимся, показываем тёмный фон
-                onError: (error, stack) {
-                  debugPrint('⚠️ Battle bg not found: $bgPath');
-                },
+                onError: (error, stack) => debugPrint('⚠️ Battle bg not found: $bgPath'),
               ),
-              color: Colors.black, // фоллбэк, если image не загрузится
+              color: const Color(0xFF1A0A0A),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: Container(color: Colors.black.withOpacity(0.2)),
-                  ),
+                  Positioned.fill(child: Container(color: Colors.black.withOpacity(0.2))),
                   GameWidget(game: _game),
                   if (_isEnemyHit && _damageText.isNotEmpty)
                     Positioned(
@@ -822,12 +795,7 @@ class _CombatScreenState extends State<CombatScreen> {
                                   color: Color(0xFFFF4D4D),
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
-                                  shadows: [
-                                    Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 4,
-                                        offset: Offset(2, 2))
-                                  ],
+                                  shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(2, 2))],
                                 ),
                               ),
                             ),
@@ -843,8 +811,7 @@ class _CombatScreenState extends State<CombatScreen> {
         Container(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           height: 80,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFF1A0A0A),
             border: Border.all(color: const Color(0xFF3A1A1A), width: 1),
@@ -862,8 +829,7 @@ class _CombatScreenState extends State<CombatScreen> {
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(entry['message'] ?? '',
-                    style: TextStyle(color: color, fontSize: 13)),
+                child: Text(entry['message'] ?? '', style: TextStyle(color: color, fontSize: 13)),
               );
             },
           ),
@@ -872,29 +838,17 @@ class _CombatScreenState extends State<CombatScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A),
-                  label:
-                      '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp'),
+              _buildHpBar(playerHp, playerMaxHp, const Color(0xFF2A8B2A), label: '${_player?['username'] ?? 'Ты'}: $playerHp/$playerMaxHp'),
               const SizedBox(height: 16),
               if (_status == 'active')
                 Row(
                   children: [
                     Expanded(
-                      child: _ActionButton(
-                          text: '⚔ АТАКА',
-                          color: const Color(0xFF8B0000),
-                          onPressed: _isActing
-                              ? null
-                              : () => _doAction('attack')),
+                      child: _ActionButton(text: '⚔ АТАКА', color: const Color(0xFF8B0000), onPressed: _isActing ? null : () => _doAction('attack')),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _ActionButton(
-                          text: '🛡 ЗАЩИТА',
-                          color: const Color(0xFF3A5A8B),
-                          onPressed: _isActing
-                              ? null
-                              : () => _doAction('defend')),
+                      child: _ActionButton(text: '🛡 ЗАЩИТА', color: const Color(0xFF3A5A8B), onPressed: _isActing ? null : () => _doAction('defend')),
                     ),
                   ],
                 ),
@@ -904,20 +858,14 @@ class _CombatScreenState extends State<CombatScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isActing || _healthPotions <= 0
-                        ? null
-                        : _usePotion,
+                    onPressed: _isActing || _healthPotions <= 0 ? null : _usePotion,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A0A0A),
                       foregroundColor: const Color(0xFF6BBF6B),
-                      side: const BorderSide(
-                          color: Color(0xFF2A8B2A), width: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                      side: const BorderSide(color: Color(0xFF2A8B2A), width: 2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: Text('🧪 ЗЕЛЬЕ HP ($_healthPotions)',
-                        style: const TextStyle(
-                            fontSize: 16, letterSpacing: 1)),
+                    child: Text('🧪 ЗЕЛЬЕ HP ($_healthPotions)', style: const TextStyle(fontSize: 16, letterSpacing: 1)),
                   ),
                 ),
               if (_status == 'active') const SizedBox(height: 8),
@@ -930,14 +878,10 @@ class _CombatScreenState extends State<CombatScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A0A0A),
                       foregroundColor: const Color(0xFF8B8B8B),
-                      side: const BorderSide(
-                          color: Color(0xFF3A3A3A), width: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                      side: const BorderSide(color: Color(0xFF3A3A3A), width: 2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('🏃 ПОБЕГ',
-                        style: TextStyle(
-                            fontSize: 16, letterSpacing: 1)),
+                    child: const Text('🏃 ПОБЕГ', style: TextStyle(fontSize: 16, letterSpacing: 1)),
                   ),
                 ),
             ],
@@ -955,9 +899,7 @@ class _CombatScreenState extends State<CombatScreen> {
         if (label != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text(label,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: 14)),
+            child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
           ),
         Stack(
           children: [
@@ -973,17 +915,12 @@ class _CombatScreenState extends State<CombatScreen> {
               widthFactor: percent.clamp(0.0, 1.0),
               child: Container(
                 height: 24,
-                decoration: BoxDecoration(
-                    color: color, borderRadius: BorderRadius.circular(3)),
+                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
               ),
             ),
             Positioned.fill(
               child: Center(
-                child: Text('$hp / $maxHp',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13)),
+                child: Text('$hp / $maxHp', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ),
           ],
@@ -998,8 +935,7 @@ class _ActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback? onPressed;
 
-  const _ActionButton(
-      {required this.text, required this.color, required this.onPressed});
+  const _ActionButton({required this.text, required this.color, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -1011,15 +947,72 @@ class _ActionButton extends StatelessWidget {
           backgroundColor: const Color(0xFF1A0A0A),
           foregroundColor: Colors.white,
           side: BorderSide(color: color, width: 2),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 15,
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold)),
+        child: Text(text, style: const TextStyle(fontSize: 15, letterSpacing: 1, fontWeight: FontWeight.bold)),
       ),
     );
   }
+}
+
+// 🆕 Анимация летающих золотых искр на фоне окна победы
+class _SparklesAnimation extends StatefulWidget {
+  @override
+  _SparklesAnimationState createState() => _SparklesAnimationState();
+}
+
+class _SparklesAnimationState extends State<_SparklesAnimation> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: _SparklePainter(_controller.value),
+          size: Size.infinite,
+        );
+      },
+    );
+  }
+}
+
+class _SparklePainter extends CustomPainter {
+  final double progress;
+  _SparklePainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFFD4AF37).withOpacity(0.6);
+    final rnd = math.Random(42); // Фиксированный сид для одинаковых искр
+
+    for (int i = 0; i < 15; i++) {
+      double x = rnd.nextDouble() * size.width;
+      double baseY = rnd.nextDouble() * size.height;
+      // Движение вверх
+      double y = baseY - (progress * size.height * 1.5) % size.height;
+      
+      // Мерцание
+      double opacity = math.sin((progress * 10) + i) * 0.5 + 0.5;
+      paint.color = const Color(0xFFD4AF37).withOpacity(opacity);
+      
+      canvas.drawCircle(Offset(x, y), rnd.nextDouble() * 2 + 1, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparklePainter oldDelegate) => oldDelegate.progress != progress;
 }

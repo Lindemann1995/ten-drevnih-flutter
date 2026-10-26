@@ -1,8 +1,8 @@
+import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import '../utils/asset_paths.dart';
-import '../utils/game_constants.dart';
+import 'package:flutter/services.dart';
 
 class BattleGame extends FlameGame {
   final String playerClass;
@@ -10,6 +10,7 @@ class BattleGame extends FlameGame {
   final String enemyImagePath;
   final String bgImagePath;
   final bool shouldFlip;
+  final double enemyScale;
 
   BattleGame({
     required this.playerClass,
@@ -17,6 +18,7 @@ class BattleGame extends FlameGame {
     this.enemyImagePath = '',
     this.bgImagePath = '',
     this.shouldFlip = false,
+    this.enemyScale = 1.0,
   });
 
   @override
@@ -34,29 +36,31 @@ class BattleGame extends FlameGame {
     await super.onLoad();
 
     // 1. ГЕРОЙ
-    String idleRelPath = 'characters/hero_idle.png';
-    String attackRelPath = 'characters/hero_attack.png';
+    const String charFolder = 'assets/images/characters/';
+
+    String idlePath = '${charFolder}hero_idle.png';
+    String attackPath = '${charFolder}hero_attack.png';
     String cls = playerClass.toLowerCase();
 
     if (cls.contains('лучник') || cls.contains('archer')) {
-      idleRelPath = 'characters/hero_archer_idle.png';
-      attackRelPath = 'characters/hero_archer_attack.png';
+      idlePath = '${charFolder}hero_archer_idle.png';
+      attackPath = '${charFolder}hero_archer_attack.png';
     } else if (cls.contains('копейщик') ||
         cls.contains('копьеносец') ||
         cls.contains('spearman')) {
-      idleRelPath = 'characters/hero_spearman_idle.png';
-      attackRelPath = 'characters/hero_spearman_attack.png';
+      idlePath = '${charFolder}hero_spearman_idle.png';
+      attackPath = '${charFolder}hero_spearman_attack.png';
     } else if (cls.contains('жнец') || cls.contains('reaper')) {
-      idleRelPath = 'characters/hero_reaper_idle.png';
-      attackRelPath = 'characters/hero_reaper_attack.png';
+      idlePath = '${charFolder}hero_reaper_idle.png';
+      attackPath = '${charFolder}hero_reaper_attack.png';
     } else if (cls.contains('варвар') || cls.contains('barbarian')) {
-      idleRelPath = 'characters/hero_barbarian_idle.png';
-      attackRelPath = 'characters/hero_barbarian_attack.png';
+      idlePath = '${charFolder}hero_barbarian_idle.png';
+      attackPath = '${charFolder}hero_barbarian_attack.png';
     }
 
-    final heroIdleImage = await images.load(AssetPaths.forFlame(idleRelPath));
-    final heroAttackImage =
-        await images.load(AssetPaths.forFlame(attackRelPath));
+    // ВОТ ЗДЕСЬ МЫ ИСПОЛЬЗУЕМ rootBundle (без AssetPaths)
+    final heroIdleImage = await _loadAssetImage(idlePath);
+    final heroAttackImage = await _loadAssetImage(attackPath);
 
     double frameSize = heroIdleImage.height.toDouble();
     int idleFramesCount = (heroIdleImage.width / frameSize).round();
@@ -81,22 +85,24 @@ class BattleGame extends FlameGame {
     );
     attackAnim.loop = false;
 
-    // 2. ВРАГ — с фоллбэком на случай битого пути
+    // 2. ВРАГ
     final mobImage = await _loadEnemySprite(enemyImagePath);
 
     // 3. РАЗМЕЩЕНИЕ
     hero = SpriteAnimationComponent(
       animation: idleAnim,
       size: Vector2(150, 150),
-      position: Vector2(40, size.y - -30),
+      position: Vector2(40, size.y - 20),
       anchor: Anchor.bottomLeft,
     );
 
-    // Логика отражения зависит ТОЛЬКО от галочки в админке (shouldFlip)
+    double baseEnemySize = 120.0;
+    double finalEnemySize = baseEnemySize * enemyScale;
+
     enemy = SpriteComponent(
       sprite: Sprite(mobImage),
-      size: Vector2(120, 120),
-      position: Vector2(size.x - 40, size.y - -10),
+      size: Vector2(finalEnemySize, finalEnemySize),
+      position: Vector2(size.x - 40, size.y - 20),
       anchor: shouldFlip ? Anchor.bottomLeft : Anchor.bottomRight,
     );
 
@@ -108,20 +114,38 @@ class BattleGame extends FlameGame {
     add(enemy);
   }
 
-  /// Безопасная загрузка спрайта врага с фоллбэком на волка.
-  Future<dynamic> _loadEnemySprite(String rawPath) async {
-    final cleanPath = rawPath.isEmpty
-        ? GameConstants.fallbackEnemySprite
-        : AssetPaths.forFlame(rawPath);
+  Future<ui.Image> _loadAssetImage(String path) async {
+    try {
+      final ByteData data = await rootBundle.load(path);
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      return frame.image;
+    } catch (e) {
+      debugPrint('❌ Ошибка загрузки ассета: $path');
+      rethrow;
+    }
+  }
+
+  Future<ui.Image> _loadEnemySprite(String rawPath) async {
+    if (rawPath.isEmpty) {
+      return await _loadAssetImage('assets/images/characters/wolf.png');
+    }
+
+    String cleanPath = rawPath
+        .replaceAll('assets/images/assets/images/', '')
+        .replaceAll('assets/images/', '')
+        .replaceAll('assets/', '');
+    
+    String finalPath = 'assets/images/$cleanPath';
 
     try {
-      return await images.load(cleanPath);
+      return await _loadAssetImage(finalPath);
     } catch (e) {
-      debugPrint('⚠️ Enemy sprite not found: "$cleanPath" — using fallback wolf');
+      debugPrint('⚠️ Спрайт врага не найден: "$finalPath" — используем волка');
       try {
-        return await images.load(GameConstants.fallbackEnemySprite);
+        return await _loadAssetImage('assets/images/characters/wolf.png'); 
       } catch (e2) {
-        debugPrint('❌ Fallback sprite also failed: $e2');
+        debugPrint('❌ Дефолтный спрайт тоже не найден: $e2');
         rethrow;
       }
     }
@@ -138,7 +162,6 @@ class BattleGame extends FlameGame {
   }
 
   void enemyHit() {
-    // Сохраняем знак scale.x, чтобы не сбросить отражение (shouldFlip)
     final double signX = shouldFlip ? -1.0 : 1.0;
     enemy.scale = Vector2(1.1 * signX, 1.1);
     Future.delayed(const Duration(milliseconds: 150), () {

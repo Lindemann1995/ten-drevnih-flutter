@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/api_client.dart';
+import '../utils/asset_paths.dart'; // <--- ДОБАВЛЕН ИМПОРТ ДЛЯ КАРТИНОК
 import 'siege_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -301,10 +302,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                               ),
                                           ],
                                         ),
-                                        child: Icon(
-                                          Icons.castle,
-                                          color: isFree ? Colors.white54 : const Color(0xFFD4AF37),
-                                          size: 36,
+                                        // 🆕 ЗАМЕНИЛИ ИКОНКУ НА КАРТИНКУ ИЗ АДМИНКИ
+                                        child: ClipOval(
+                                          child: Image.asset(
+                                            AssetPaths.forFlutter(castle['image_path'] ?? ''),
+                                            width: 50,
+                                            height: 50,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              // Если картинки нет — показываем иконку
+                                              return Icon(
+                                                Icons.castle,
+                                                color: isFree ? Colors.white54 : const Color(0xFFD4AF37),
+                                                size: 36,
+                                              );
+                                            },
+                                          ),
                                         ),
                                       );
                                     },

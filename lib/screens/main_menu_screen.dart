@@ -412,8 +412,17 @@ class _HomeTab extends StatelessWidget {
                   _buildGridButton(Icons.backpack, 'СНАРЯЖЕНИЕ', Colors.greenAccent, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen()));
                   }),
+                  // 🆕 ИСПРАВЛЕННЫЙ ПЕРЕХОД НА СТАТЫ (Передаем профиль и onRefresh)
                   _buildGridButton(Icons.bar_chart, 'СТАТЫ', Colors.redAccent, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen()));
+                    Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        builder: (_) => StatsScreen(
+                          initialProfile: profile,
+                          onRefresh: onRefresh,
+                        )
+                      )
+                    );
                   }),
                 ],
               ),
