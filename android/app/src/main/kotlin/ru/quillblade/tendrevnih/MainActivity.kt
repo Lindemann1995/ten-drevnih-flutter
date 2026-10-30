@@ -1,4 +1,4 @@
-package com.example.ten_drevnih
+package ru.quillblade.tendrevnih
 
 import io.flutter.embedding.android.FlutterActivity
 

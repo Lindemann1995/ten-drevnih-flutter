@@ -139,6 +139,109 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     });
   }
 
+
+  void _showDeleteAccountDialog() {
+    final passwordController = TextEditingController();
+    bool isDeleting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A0A0A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+              ),
+              title: const Text(
+                'УДАЛЕНИЕ АККАУНТА',
+                style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ВНИМАНИЕ! Это действие необратимо. Все ваши данные будут анонимизированы, и вы больше не сможете войти в этот аккаунт.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Пароль для подтверждения',
+                      labelStyle: const TextStyle(color: Colors.white54),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF3A1A1A)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF0A0A0A),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Отмена', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[900],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          if (passwordController.text.isEmpty) return;
+                          setDialogState(() => isDeleting = true);
+
+                          final res = await ApiClient.deleteAccount(passwordController.text);
+
+                          if (!dialogContext.mounted) return;
+                          Navigator.pop(dialogContext); // Закрываем диалог
+
+                          if (res['success'] == true) {
+                            if (!context.mounted) return;
+                            // Выкидываем на экран логина
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          } else {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['error'] ?? 'Ошибка при удалении'),
+                                backgroundColor: Colors.red[900],
+                              ),
+                            );
+                          }
+                        },
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('УДАЛИТЬ', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -410,6 +513,26 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 5,
                         shadowColor: const Color(0xFFD4AF37).withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                                    const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: TextButton.icon(
+                      onPressed: _showDeleteAccountDialog, // 🆕 Вызов диалога
+                      icon: const Icon(Icons.delete_forever, size: 20),
+                      label: const Text(
+                        'УДАЛИТЬ АККАУНТ', 
+                        style: TextStyle(fontSize: 14, letterSpacing: 1),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey, // Не красный, чтобы не мозолить глаза
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: Colors.white24, width: 1),
+                        ),
                       ),
                     ),
                   ),

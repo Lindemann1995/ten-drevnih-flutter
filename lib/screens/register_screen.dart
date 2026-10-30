@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import 'login_screen.dart';
 import 'class_selection_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
-  @override
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -20,8 +20,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _privacyAccepted = false;
 
-  @override
   @override
   void dispose() {
     _usernameController.dispose();
@@ -58,6 +58,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showError('Пароли не совпадают');
       return;
     }
+    if (!_privacyAccepted) {
+      _showError('Необходимо согласие с политикой конфиденциальности');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -66,6 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: email,
       password: password,
       passwordConfirm: passwordConfirm,
+      privacyAccepted: _privacyAccepted,
     );
 
     if (!mounted) return;
@@ -102,7 +107,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  @override
+  void _openPrivacyPolicy() {
+    // Открываем политику внутри приложения, чтобы не выкидывать игрока из флоу.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const PrivacyPolicyScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -189,6 +203,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 30),
+
+                                // 🆕 Чекбокс согласия
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: _privacyAccepted,
+                      onChanged: (v) => setState(() => _privacyAccepted = v ?? false),
+                      activeColor: const Color(0xFFD4AF37),
+                      checkColor: Colors.black,
+                      side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Wrap(
+                          children: [
+                            const Text(
+                              'Я принимаю условия ',
+                              style: TextStyle(color: Colors.white70, fontSize: 13),
+                            ),
+                            GestureDetector(
+                              onTap: () => _openPrivacyPolicy(),
+                              child: const Text(
+                                'Политики конфиденциальности',
+                                style: TextStyle(
+                                  color: Color(0xFFD4AF37),
+                                  fontSize: 13,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+
+                    
 
                 // Кнопка регистрации
                 SizedBox(

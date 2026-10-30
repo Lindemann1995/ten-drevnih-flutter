@@ -24,6 +24,7 @@ class BattleGame extends FlameGame {
   @override
   Color backgroundColor() => Colors.transparent;
 
+  late SpriteComponent background;
   late SpriteAnimationComponent hero;
   late SpriteComponent enemy;
 
@@ -31,9 +32,38 @@ class BattleGame extends FlameGame {
   late SpriteAnimation idleAnim;
   late SpriteAnimation attackAnim;
 
-  @override
+    @override
   Future<void> onLoad() async {
     await super.onLoad();
+
+    // 0. ЗАГРУЗКА ФОНА
+    if (bgImagePath.isNotEmpty) {
+      try {
+        String cleanBgPath = bgImagePath
+            .replaceAll('assets/images/assets/images/', '')
+            .replaceAll('assets/images/', '')
+            .replaceAll('assets/', '');
+        String finalBgPath = 'assets/images/$cleanBgPath';
+        
+        debugPrint('🔄 Пытаемся загрузить фон: $finalBgPath');
+        
+        final bgImage = await _loadAssetImage(finalBgPath);
+        
+        // Используем size из камеры (актуальный размер экрана)
+        background = SpriteComponent(
+          sprite: Sprite(bgImage),
+          size: Vector2(camera.viewport.virtualSize.x, camera.viewport.virtualSize.y),
+          position: Vector2.zero(),
+          priority: -1, // Самый нижний слой
+        );
+        add(background);
+        debugPrint('✅ Фон успешно загружен');
+      } catch (e) {
+        debugPrint('❌ Не удалось загрузить фон: $e');
+      }
+    } else {
+      debugPrint('⚠️ bgImagePath пустой, фон не загружается');
+    }
 
     // 1. ГЕРОЙ
     const String charFolder = 'assets/images/characters/';

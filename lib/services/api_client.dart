@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  static const String baseUrl = 'https://dev.api.code-nest.ru/api/game';
+  static const String baseUrl = 'https://api.code-nest.ru/api/game';
   static String? _token;
 
   static Future<void> loadToken() async {
@@ -63,6 +63,7 @@ class ApiClient {
     required String email,
     required String password,
     required String passwordConfirm,
+    required bool privacyAccepted,
   }) async {
     try {
       final response = await http.post(
@@ -73,6 +74,7 @@ class ApiClient {
           'email': email,
           'password': password,
           'password_confirm': passwordConfirm,
+          'privacy_accepted': privacyAccepted, 
         }),
       );
 
@@ -421,7 +423,7 @@ class ApiClient {
     return _handleResponse(response);
   }
 
-  static const String _guildUrl = 'https://dev.api.code-nest.ru/api/guilds';
+  static const String _guildUrl = 'https://api.code-nest.ru/api/guilds';
 
   static Future<Map<String, dynamic>> getMyGuild() async {
     final response = await http.get(Uri.parse('$_guildUrl/my/'), headers: _headers);
@@ -635,7 +637,7 @@ class ApiClient {
     return _handleResponse(response);
   }
 
-  static const String _socialUrl = 'https://dev.api.code-nest.ru/api/social';
+  static const String _socialUrl = 'https://api.code-nest.ru/api/social';
 
   static Future<Map<String, dynamic>> getFriends() async {
     final response = await http.get(Uri.parse('$_socialUrl/friends/'), headers: _headers);
@@ -710,6 +712,91 @@ class ApiClient {
         body: jsonEncode({'stat': stat}),
       );
       return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Ошибка соединения с сервером'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> reportPlayer({
+    required String targetUsername,
+    required String reason,
+    String comment = '',
+  }) async {
+    print('=== ОТПРАВКА ЖАЛОБЫ ===');
+    print('Токен: $_token');
+    print('Заголовки: $_headers');
+    print('Ник: $targetUsername, Причина: $reason');
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/player/report/'),
+        headers: _headers,
+        body: jsonEncode({
+          'target_username': targetUsername,
+          'reason': reason,
+          'comment': comment,
+        }),
+      );
+      
+      print('ОТВЕТ СЕРВЕРА: ${response.statusCode}');
+      print('ТЕЛО ОТВЕТА: ${response.body}');
+      
+      return _handleResponse(response);
+    } catch (e) {
+      print('ОШИБКА СЕТИ: $e');
+      return {'success': false, 'error': 'Ошибка сети: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getNotifications() async {
+    final response = await http.get(Uri.parse('$baseUrl/player/notifications/'), headers: _headers);
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> markNotificationsRead() async {
+    final response = await http.post(Uri.parse('$baseUrl/player/notifications/read/'), headers: _headers);
+    return _handleResponse(response);
+  }
+
+  static Future<int> getUnreadNotificationsCount() async {
+    try {
+      final result = await getNotifications();
+      if (result['success'] == true) {
+        final notes = result['data']['notifications'] as List;
+        return notes.where((n) => n['is_read'] == false).length;
+      }
+    } catch (e) {
+      // Игнорируем ошибку, если сервер недоступен
+    }
+    return 0;
+  }
+  static Future<Map<String, dynamic>> getChatHistory() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/history/'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Ошибка соединения с сервером'};
+    }
+  }
+  
+    static Future<Map<String, dynamic>> deleteAccount(String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/player/delete/'),
+        headers: _headers,
+        body: jsonEncode({'password': password}),
+      );
+      
+      final result = _handleResponse(response);
+      
+      if (result['success'] == true) {
+        await clearToken(); // Стираем JWT токен
+      }
+      
+      return result;
     } catch (e) {
       return {'success': false, 'error': 'Ошибка соединения с сервером'};
     }

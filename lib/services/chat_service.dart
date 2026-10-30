@@ -25,7 +25,7 @@ class ChatService {
     try {
       print("ПОДКЛЮЧАЮСЬ К ЧАТУ...");
       _channel = WebSocketChannel.connect(
-        Uri.parse('wss://dev.api.code-nest.ru/ws/chat/'), // Твой адрес
+        Uri.parse('wss://api.code-nest.ru/ws/chat/'), // Твой адрес
       );
 
       _channel!.stream.listen(

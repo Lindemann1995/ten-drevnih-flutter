@@ -13,6 +13,8 @@ import '../main.dart';
 import 'quest_list_screen.dart';
 import 'guild_screen.dart';
 import 'friends_screen.dart';
+import 'notifications_screen.dart';
+import 'dart:async';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -25,6 +27,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
   int _currentIndex = 0;
   Map<String, dynamic>? _profile;
   int _profileKey = 0;
+  int _unreadCount = 0;
+  Timer? _notificationTimer;
   
   late AnimationController _navController;
 
@@ -32,7 +36,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
   void initState() {
     super.initState();
     _loadProfile();
-    _checkOfflineReward(); 
+    _loadUnreadCount(); 
+    _checkOfflineReward();
+
+    // Автообновление каждые 30 секунд
+    _notificationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _loadUnreadCount();
+    });
     
     _navController = AnimationController(
       vsync: this,
@@ -55,6 +65,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
 
   @override
   void dispose() {
+    _notificationTimer?.cancel(); 
     routeObserver.unsubscribe(this);
     _navController.dispose();
     super.dispose();
@@ -63,6 +74,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
   @override
   void didPopNext() {
     _loadProfile(); 
+    _loadUnreadCount();
   }
 
   Future<void> _loadProfile() async {
@@ -71,6 +83,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
       setState(() {
         _profile = result['data'];
       });
+    }
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await ApiClient.getUnreadNotificationsCount();
+      print('=== ПОЛУЧЕНО УВЕДОМЛЕНИЙ: $count ==='); // Отладка
+      if (mounted) {
+        setState(() {
+          _unreadCount = count;
+        });
+      }
+    } catch (e) {
+      print('=== ОШИБКА ПОЛУЧЕНИЯ УВЕДОМЛЕНИЙ: $e ==='); // Отладка
     }
   }
 
@@ -129,6 +155,306 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
     _navController.forward(from: 0);
   }
 
+  void _showReportDialog(BuildContext context) {
+    final TextEditingController usernameController = TextEditingController();
+    final TextEditingController commentController = TextEditingController();
+    String selectedReason = 'toxic';
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.85),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1A0A0A), Color(0xFF0A0000)],
+                  ),
+                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.8), width: 2),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFD4AF37).withOpacity(0.2),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.8),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'ЖАЛОБА НА ИГРОКА',
+                          style: TextStyle(
+                            color: Color(0xFFD4AF37),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: const Icon(Icons.close, color: Colors.white54, size: 24),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: Color(0xFFD4AF37), height: 1),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: usernameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Ник нарушителя',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        prefixIcon: const Icon(Icons.person, color: Color(0xFFD4AF37)),
+                        filled: true,
+                        fillColor: Colors.black.withOpacity(0.3),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.white12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedReason,
+                      dropdownColor: const Color(0xFF1A0A0A),
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      decoration: InputDecoration(
+                        labelText: 'Причина жалобы',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        prefixIcon: const Icon(Icons.gavel, color: Color(0xFFD4AF37)),
+                        filled: true,
+                        fillColor: Colors.black.withOpacity(0.3),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.white12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'toxic', child: Text('Оскорбления / Токсичность')),
+                        DropdownMenuItem(value: 'spam', child: Text('Спам / Реклама')),
+                        DropdownMenuItem(value: 'cheat', child: Text('Читерство / Взлом')),
+                        DropdownMenuItem(value: 'other', child: Text('Другое')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedReason = val;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: commentController,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Комментарий (опционально)',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(bottom: 40),
+                          child: Icon(Icons.comment, color: Color(0xFFD4AF37)),
+                        ),
+                        filled: true,
+                        fillColor: Colors.black.withOpacity(0.3),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.white12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Colors.white30),
+                              ),
+                            ),
+                            child: const Text('ОТМЕНА', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8B0000),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Color(0xFFFF4D4D), width: 1),
+                              ),
+                              elevation: 5,
+                              shadowColor: const Color(0xFF8B0000).withOpacity(0.8),
+                            ),
+                            onPressed: () async {
+                              final username = usernameController.text.trim();
+                              if (username.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Введите ник игрока'), backgroundColor: Colors.orange),
+                                );
+                                return;
+                              }
+                              
+                              Navigator.of(context).pop(); 
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Row(
+                                    children: [
+                                      SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                                      SizedBox(width: 16),
+                                      Text('Отправка жалобы...'),
+                                    ],
+                                  ),
+                                  backgroundColor: Color(0xFF1A0A0A),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+
+                              Map<String, dynamic> result;
+                              try {
+                                result = await ApiClient.reportPlayer(
+                                  targetUsername: username,
+                                  reason: selectedReason,
+                                  comment: commentController.text.trim(),
+                                );
+                              } catch (e) {
+                                result = {
+                                  'success': false,
+                                  'error': 'Сервер вернул ошибку. Проверь логи сервера.\nДетали: $e'
+                                };
+                              }
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).clearSnackBars(); 
+                                
+                                if (result['success'] == true) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      backgroundColor: const Color(0xFF1A0A0A),
+                                      shape: RoundedRectangleBorder(
+                                        side: const BorderSide(color: Color(0xFF2A8B2A), width: 2),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.check_circle_outline, color: Color(0xFF2A8B2A), size: 60),
+                                          const SizedBox(height: 16),
+                                          const Text('Жалоба отправлена!', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 8),
+                                          const Text('Модераторы проверят её в ближайшее время.', style: TextStyle(color: Colors.white54, fontSize: 14), textAlign: TextAlign.center),
+                                          const SizedBox(height: 24),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF2A8B2A),
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              child: const Text('ПОНЯТНО', style: TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      backgroundColor: const Color(0xFF1A0A0A),
+                                      shape: RoundedRectangleBorder(
+                                        side: const BorderSide(color: Color(0xFF8B0000), width: 2),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.error_outline, color: Color(0xFF8B0000), size: 60),
+                                          const SizedBox(height: 16),
+                                          const Text('Ошибка отправки', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 8),
+                                          Text(result['error'] ?? 'Неизвестная ошибка', style: const TextStyle(color: Colors.white54, fontSize: 14), textAlign: TextAlign.center),
+                                          const SizedBox(height: 24),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF8B0000),
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              child: const Text('ЗАКРЫТЬ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            child: const Text('ОТПРАВИТЬ', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -146,9 +472,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> with RouteAware, Ticker
           index: _currentIndex,
           children: [
             _HomeTab(
+              key: ValueKey('home_$_unreadCount'), // Принудительная перерисовка
               profile: _profile, 
               onRefresh: _loadProfile,
               onNavigate: _onTabTapped,
+              onReport: () => _showReportDialog(context),
+              unreadCount: _unreadCount,
+              onUpdateUnreadCount: _loadUnreadCount,
             ),
             const WorldMapScreen(), 
             const ChatScreen(), 
@@ -254,11 +584,18 @@ class _HomeTab extends StatelessWidget {
   final Map<String, dynamic>? profile;
   final VoidCallback onRefresh; 
   final Function(int) onNavigate;
+  final VoidCallback onReport;
+  final int unreadCount;
+  final VoidCallback onUpdateUnreadCount;
 
   const _HomeTab({
+    super.key,
     this.profile, 
     required this.onRefresh,
     required this.onNavigate,
+    required this.onReport,
+    required this.unreadCount,
+    required this.onUpdateUnreadCount,
   });
 
   @override
@@ -278,7 +615,6 @@ class _HomeTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- 🆕 ЭПИЧНАЯ ШАПКА ПРОФИЛЯ ---
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -297,7 +633,6 @@ class _HomeTab extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        // Аватар с золотым свечением
                         Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -316,8 +651,6 @@ class _HomeTab extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        
-                        // Ник и класс
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,24 +690,62 @@ class _HomeTab extends StatelessWidget {
                             ],
                           ),
                         ),
-                        
-                        // Кнопки действий
                         Row(
                           children: [
-                            _buildTopIcon(Icons.stars, 'События', () => _showComingSoon(context, 'События')),
+                            IconButton(
+                              icon: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  const Icon(Icons.notifications, color: Color(0xFFD4AF37)),
+                                  if (unreadCount > 0)
+                                    Positioned(
+                                      right: -4,
+                                      top: -4,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 16,
+                                          minHeight: 16,
+                                        ),
+                                        child: Text(
+                                          '$unreadCount',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              tooltip: 'Уведомления',
+                              onPressed: () async {
+                                await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                                onUpdateUnreadCount();
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.report_problem, color: Color(0xFFD4AF37)),
+                              tooltip: 'Пожаловаться',
+                              onPressed: onReport,
+                            ),
                             const SizedBox(width: 8),
                             _buildTopIcon(Icons.people_alt, 'Друзья', () {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen()));
                             }),
                             const SizedBox(width: 8),
-                            _buildTopIcon(Icons.settings, 'Настройки', () => _showComingSoon(context, 'Настройки')),
                           ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Полоска опыта
                     _buildExpBar(
                       profile?['experience'] ?? 0, 
                       profile?['experience_to_next'] ?? 100
@@ -383,14 +754,11 @@ class _HomeTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 25),
-
-              // --- ВАШИ ПРИКЛЮЧЕНИЯ (Компактные, с иконками) ---
               const Text(
                 'ВАШИ ПРИКЛЮЧЕНИЯ',
                 style: TextStyle(color: Color(0xFFD4AF37), fontSize: 14, letterSpacing: 2, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              
               GridView.count(
                 crossAxisCount: 3,
                 shrinkWrap: true, 
@@ -412,7 +780,6 @@ class _HomeTab extends StatelessWidget {
                   _buildGridButton(Icons.backpack, 'СНАРЯЖЕНИЕ', Colors.greenAccent, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen()));
                   }),
-                  // 🆕 ИСПРАВЛЕННЫЙ ПЕРЕХОД НА СТАТЫ (Передаем профиль и onRefresh)
                   _buildGridButton(Icons.bar_chart, 'СТАТЫ', Colors.redAccent, () {
                     Navigator.push(
                       context, 
@@ -427,14 +794,11 @@ class _HomeTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 25),
-
-              // --- БЫСТРЫЕ ДЕЙСТВИЯ ---
               const Text(
                 'БЫСТРЫЕ ДЕЙСТВИЯ',
                 style: TextStyle(color: Color(0xFFD4AF37), fontSize: 14, letterSpacing: 2, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              
               GridView.count(
                 crossAxisCount: 4,
                 shrinkWrap: true,
@@ -513,7 +877,6 @@ class _HomeTab extends StatelessWidget {
                   );
                 },
               ),
-              // Блик сверху
               Positioned(
                 top: 2, left: 4, right: 4, height: 3,
                 child: Container(

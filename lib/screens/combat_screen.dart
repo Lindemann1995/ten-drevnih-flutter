@@ -737,11 +737,6 @@ class _CombatScreenState extends State<CombatScreen> with TickerProviderStateMix
     final enemyHp = _enemy?['hp'] ?? 0;
     final enemyMaxHp = _enemy?['max_hp'] ?? 100;
 
-    String bgPath = AssetPaths.forFlutter('ui/battle_bg.png');
-    if (_enemy?['bg'] != null && _enemy!['bg'].toString().isNotEmpty) {
-      bgPath = AssetPaths.forFlutter(_enemy!['bg']);
-    }
-
     return Column(
       children: [
         Container(
@@ -764,18 +759,14 @@ class _CombatScreenState extends State<CombatScreen> with TickerProviderStateMix
               border: Border.all(color: const Color(0xFFD4AF37), width: 2),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.2), blurRadius: 10, spreadRadius: 2)],
-              image: DecorationImage(
-                image: AssetImage(bgPath),
-                fit: BoxFit.cover,
-                onError: (error, stack) => debugPrint('⚠️ Battle bg not found: $bgPath'),
-              ),
-              color: const Color(0xFF1A0A0A),
+              // ❌ Убрали DecorationImage, теперь фон рисует Flame
+              color: const Color(0xFF1A0A0A), 
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Stack(
                 children: [
-                  Positioned.fill(child: Container(color: Colors.black.withOpacity(0.2))),
+                  // ❌ Убрали черный оверлей, он был нужен только для картинки
                   GameWidget(game: _game),
                   if (_isEnemyHit && _damageText.isNotEmpty)
                     Positioned(

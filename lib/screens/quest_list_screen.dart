@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
+import '../utils/asset_paths.dart';
+
 
 class QuestListScreen extends StatefulWidget {
   const QuestListScreen({super.key});
@@ -350,7 +352,7 @@ class _QuestListScreenState extends State<QuestListScreen> with SingleTickerProv
                   const Text('Предметы:', style: TextStyle(color: Color.fromARGB(137, 104, 106, 230), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   const SizedBox(height: 8),
                   
-                  if (hasItem || hasResource)
+                                    if (hasItem || hasResource)
                     Wrap(
                       alignment: WrapAlignment.center,
                       spacing: 8,
@@ -358,17 +360,19 @@ class _QuestListScreenState extends State<QuestListScreen> with SingleTickerProv
                       children: [
                         if (hasItem)
                           _buildItemReward(
-                            quest['reward_item_slug'], 
+                            quest['reward_item_image'] ?? '', 
                             quest['reward_item_name'], 
                             quest['reward_item_qty'], 
-                            quest['reward_item_rarity']
+                            quest['reward_item_rarity'],
+                            slug: quest['reward_item_slug'], // 🆕 Передаем слаг
                           ),
                         if (hasResource)
                           _buildItemReward(
-                            quest['reward_resource_slug'], 
+                            quest['reward_resource_image'] ?? '', 
                             quest['reward_resource_name'], 
                             quest['reward_resource_qty'], 
-                            quest['reward_resource_rarity']
+                            quest['reward_resource_rarity'],
+                            slug: quest['reward_resource_slug'], // 🆕 Передаем слаг
                           ),
                       ],
                     )
@@ -393,12 +397,20 @@ class _QuestListScreenState extends State<QuestListScreen> with SingleTickerProv
   }
 
   // Виджет для отрисовки предмета в награде (в окне)
-  Widget _buildItemReward(String slug, String name, int qty, String rarity) {
+  // Виджет для отрисовки предмета в награде (в окне)
+  Widget _buildItemReward(String imagePath, String name, int qty, String rarity, {String? slug}) {
     Color rarityColor = Colors.grey;
     if (rarity == 'uncommon') rarityColor = const Color(0xFF4A8B4A);
     if (rarity == 'rare') rarityColor = const Color(0xFF3A5A8B);
     if (rarity == 'epic') rarityColor = const Color(0xFF8B3A8B);
     if (rarity == 'legendary') rarityColor = const Color(0xFFD4AF37);
+
+    // 🆕 Используем твой централизованный класс для путей!
+    // Если imagePath пришел с сервера, он его очистит. Если пусто — возьмет slug.
+    final fullPath = AssetPaths.forItem(
+      imagePath.isNotEmpty ? imagePath : null, 
+      slug,
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -411,14 +423,15 @@ class _QuestListScreenState extends State<QuestListScreen> with SingleTickerProv
         mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset(
-            'assets/images/items/$slug.png',
+            fullPath,
             width: 24,
             height: 24,
+            // Если файл не найден, показываем иконку рюкзака
             errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, size: 24, color: rarityColor),
           ),
           const SizedBox(width: 8),
           Text(
-            '${name} (x$qty)',
+            '$name (x$qty)',
             style: TextStyle(color: rarityColor, fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ],

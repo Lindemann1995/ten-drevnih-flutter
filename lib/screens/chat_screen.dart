@@ -19,12 +19,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadMe();
+    _loadHistory(); // 🆕 Загружаем историю при открытии
     ChatService().connect((msg) {
       if (mounted) {
-        if (!msg.containsKey('time')) {
-          final now = DateTime.now();
-          msg['time'] = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-        }
+        msg['time'] = _formatServerTime(msg['created_at']);
         setState(() {
           _messages.add(msg);
         });
@@ -39,6 +37,35 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _myUsername = result['data']['username'] ?? 'Игрок';
       });
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    final result = await ApiClient.getChatHistory();
+    if (result['success'] == true && mounted) {
+      final raw = List<Map<String, dynamic>>.from(result['data']['messages'] ?? []);
+      for (final m in raw) {
+        m['time'] = _formatServerTime(m['created_at']) != '--:--'
+            ? _formatServerTime(m['created_at'])
+            : (m['time'] ?? '--:--');
+      }
+      setState(() {
+        _messages.clear();
+        _messages.addAll(raw);
+      });
+      _scrollToBottom();
+    }
+  }
+
+    /// Парсит ISO-8601 из БД (UTC) и возвращает локальное время HH:mm.
+  /// Если поле отсутствует/битое — возвращает '--:--'.
+  String _formatServerTime(dynamic isoString) {
+    if (isoString is! String || isoString.isEmpty) return '--:--';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '--:--';
     }
   }
 
@@ -77,7 +104,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Получаем высоту экрана, чтобы фон всегда был на весь экран
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
@@ -85,9 +111,6 @@ class _ChatScreenState extends State<ChatScreen> {
       color: Colors.black,
       child: Stack(
         children: [
-          // 1. ФОН (ЗАФИКСИРОВАН НАВСЕГДА)
-          // OverflowBox позволяет картинке быть больше, чем позволяет система,
-          // и она не будет сжиматься при клавиатуре.
           Positioned.fill(
             child: OverflowBox(
               minHeight: screenHeight,
@@ -100,8 +123,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-
-          // 2. КОНТЕНТ (ПОДНИМАЕТСЯ НАД КЛАВИАТУРОЙ)
           SafeArea(
             child: Padding(
               padding: EdgeInsets.only(bottom: bottomInset),
